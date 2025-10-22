@@ -1,0 +1,13 @@
+[package]
+name = "skybox"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+eyre = "0.6.12"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+slurm-spank = "0.4.0"
