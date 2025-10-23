@@ -1,4 +1,5 @@
 use serde::{Serialize};
+use std::error::Error;
 
 use slurm_spank::{
     Plugin,
@@ -30,4 +31,16 @@ struct SpankSkyBox {
     container_env: Option<String>,
     environment: Option<String>,
     dump_environment: Option<bool>,
+}
+
+pub(crate) fn get_plugin_name() -> String {
+    return String::from("skybox");
+}
+
+pub(crate) fn plugin_string(s: &str) -> String {
+    return format!("{}: {}", get_plugin_name(), s);
+}
+
+pub(crate) fn plugin_err(s: &str) -> Result<(), Box<dyn Error>> {
+    return Err(plugin_string(s).into()); 
 }

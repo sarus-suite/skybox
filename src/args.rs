@@ -1,7 +1,7 @@
 use std::error::Error;
 use slurm_spank::{SpankHandle, SpankOption};
 
-use crate::SpankSkyBox;
+use crate::{SpankSkyBox, get_plugin_name, plugin_err};
 
 pub(crate) struct SpankArg {
     name: String,
@@ -18,7 +18,7 @@ fn add_arg(mut v: SpankArgs, a: SpankArg) -> SpankArgs {
 }
 
 pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-    let plug_name = "skybox";
+    let plug_name = get_plugin_name();
 
     let mut opts = vec!();
     opts = add_arg(opts, SpankArg {
@@ -157,7 +157,9 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
 
 pub(crate) fn set_arg_mount_home(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
     match ssb.container_mount_home {
-        Some(_) => return Err("container-mount-home argument specified more than once".into()),
+        Some(_) => if ssb.container_mount_home != Some(value) {
+            plugin_err("both --container-mount-home and --no-container-mount-home were specified")?
+        },
         None => {
             ssb.container_mount_home = Some(value);
         },
@@ -167,7 +169,9 @@ pub(crate) fn set_arg_mount_home(ssb: &mut SpankSkyBox, value: bool) -> Result<(
 
 pub(crate) fn set_arg_remap_root(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
     match ssb.container_remap_root {
-        Some(_) => return Err("container-remap-root argument specified more than once".into()),
+        Some(_) => if ssb.container_remap_root != Some(value) {
+            plugin_err("both --container-remap-root and --no-container-remap-root were specified")?
+        },
         None => {
             ssb.container_remap_root = Some(value);
         },
@@ -177,7 +181,9 @@ pub(crate) fn set_arg_remap_root(ssb: &mut SpankSkyBox, value: bool) -> Result<(
 
 pub(crate) fn set_arg_entrypoint(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
     match ssb.container_entrypoint {
-        Some(_) => return Err("container-entrypoint argument specified more than once".into()),
+        Some(_) => if ssb.container_entrypoint != Some(value) {
+            plugin_err("both --container-entrypoint and --no-container-entrypoint were specified")?
+        },
         None => {
             ssb.container_entrypoint = Some(value);
         },
@@ -186,18 +192,15 @@ pub(crate) fn set_arg_entrypoint(ssb: &mut SpankSkyBox, value: bool) -> Result<(
 }
 
 pub(crate) fn set_arg_entrypoint_log(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_entrypoint_log {
-        Some(_) => return Err("container-entrypoint-log argument specified more than once".into()),
-        None => {
-            ssb.container_entrypoint_log = Some(value);
-        },
-    }
+    ssb.container_entrypoint_log = Some(value);
     Ok(())
 }
 
 pub(crate) fn set_arg_writable(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
     match ssb.container_writable {
-        Some(_) => return Err("container-writable argument specified more than once".into()),
+        Some(_) => if ssb.container_writable != Some(value) {
+            plugin_err("both --container-writable and --container-readonly were specified")?
+        },
         None => {
             ssb.container_writable = Some(value);
         },
@@ -279,7 +282,13 @@ pub(crate) fn load_plugin_args(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -
     }
 
     if spank.is_option_set("container-readonly") {
-        let _ = set_arg_writable(ssb, false);
+        match set_arg_writable(ssb, false) {
+            Ok(_) => {},
+            Err(e) => {
+               //spank_log_error!("{e}"); 
+               return Err(e);
+            },
+        }
     }
 
     if spank.is_option_set("container-env") {
@@ -296,6 +305,38 @@ pub(crate) fn load_plugin_args(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -
 
     if spank.is_option_set("dump-environment") {
         let _ = set_arg_dump_environment(ssb, true);
+    }
+
+
+    Ok(())
+}
+
+
+pub(crate) fn set_remaining_default_args(ssb: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
+    
+    match ssb.container_mount_home {
+        None => ssb.container_mount_home = Some(false),
+        Some(_) => {},
+    }
+    match ssb.container_remap_root {
+        None => ssb.container_remap_root = Some(false),
+        Some(_) => {},
+    }
+    match ssb.container_entrypoint {
+        None => ssb.container_entrypoint = Some(false),
+        Some(_) => {},
+    }
+    match ssb.container_entrypoint_log {
+        None => ssb.container_entrypoint_log = Some(false),
+        Some(_) => {},
+    }
+    match ssb.container_writable {
+        None => ssb.container_writable = Some(false),
+        Some(_) => {},
+    }
+    match ssb.dump_environment {
+        None => ssb.dump_environment = Some(false),
+        Some(_) => {},
     }
 
     Ok(())

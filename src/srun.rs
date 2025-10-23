@@ -17,6 +17,7 @@ pub(crate) fn srun_init(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> Re
 #[allow(unused_variables)]
 pub(crate) fn srun_post_opt(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>>  {
     let _ = load_plugin_args(plugin, spank)?;
+    let _ = set_remaining_default_args(plugin)?;
 
     spank_log_user!("computed args:");
     spank_log_user!(

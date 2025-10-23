@@ -17,6 +17,7 @@ pub(crate) fn slurmstepd_init(plugin: &mut SpankSkyBox, spank: &mut SpankHandle)
 #[allow(unused_variables)]
 pub(crate) fn slurmstepd_post_opt(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>>  {
     let _ = load_plugin_args(plugin, spank)?;
+    let _ = set_remaining_default_args(plugin)?;
 
     spank_log_verbose!("{}: computed args:", "skybox");
     spank_log_verbose!(
