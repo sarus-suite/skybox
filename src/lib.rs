@@ -6,8 +6,12 @@ use slurm_spank::{
     SPANK_PLUGIN,
 };
 
+pub mod alloc;
 pub mod args;
 pub mod dispatch;
+pub mod slurmd;
+pub mod slurmstepd;
+pub mod srun;
 
 SPANK_PLUGIN!(b"skybox", SLURM_VERSION_NUMBER, SpankSkyBox);
 
