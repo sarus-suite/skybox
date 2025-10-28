@@ -1,9 +1,15 @@
+use serde::{Serialize, Deserialize};
 use slurm_spank::{SpankHandle, SpankOption};
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::error::Error;
 
 use crate::{SpankSkyBox, get_plugin_name, plugin_err};
-use raster::mount::{SarusMounts, sarus_mounts_from_strings};
+//use raster::mount::{SarusMounts, sarus_mounts_from_strings};
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct SkyBoxArgs {
+    pub(crate) edf: Option<String>,
+}
 
 pub(crate) struct SpankArg {
     name: String,
@@ -23,6 +29,7 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
     let plug_name = get_plugin_name();
 
     let mut opts = vec![];
+    /*
     opts = add_arg(
         opts,
         SpankArg {
@@ -196,7 +203,17 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
             has_arg: true,
         },
     );
-
+    */
+    opts = add_arg(
+        opts,
+        SpankArg {
+            name: String::from("edf"),
+            value: String::from("PATH"),
+            usage: String::from("the path to the Environment Definition File to use."),
+            has_arg: true,
+        },
+    );
+    /*    
     opts = add_arg(
         opts,
         SpankArg {
@@ -208,6 +225,7 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
             has_arg: false,
         },
     );
+    */
 
     for opt in opts {
         let so;
@@ -223,7 +241,7 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
     }
     Ok(())
 }
-
+/*
 pub(crate) fn set_arg_mount_home(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
     match ssb.container_mount_home {
         Some(_) => {
@@ -296,7 +314,20 @@ pub(crate) fn set_arg_environment(
     ssb.environment = Some(value);
     Ok(())
 }
+*/
 
+pub(crate) fn set_arg_edf(
+    ssb: &mut SpankSkyBox,
+    value: String,
+) -> Result<(), Box<dyn Error>> {
+    if value == "" {
+        plugin_err("--edf: argument required")?
+    }
+    //ssb.environment = Some(value.clone());
+    ssb.args.edf = Some(value);
+    Ok(())
+}
+/*
 pub(crate) fn set_arg_image(ssb: &mut SpankSkyBox, value: String) -> Result<(), Box<dyn Error>> {
     if value == "" {
         plugin_err("--container-image: argument required")?
@@ -374,7 +405,7 @@ pub(crate) fn set_arg_dump_environment(
     }
     Ok(())
 }
-
+*/
 pub(crate) fn load_plugin_args(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
@@ -386,6 +417,7 @@ pub(crate) fn load_plugin_args(
     the same argument multiple times. In these cases pyxis fails,
     but here we consider the last entry as a good one.
     */
+    /*
     if spank.is_option_set("container-image") {
         let arg_value = spank
             .get_option_value("container-image")?
@@ -486,15 +518,28 @@ pub(crate) fn load_plugin_args(
             .unwrap();
         let _ = set_arg_environment(ssb, arg_value)?;
     }
+    */
 
+    if spank.is_option_set("edf") {
+        let arg_value = spank
+            .get_option_value("edf")?
+            .map(|s| s.to_string())
+            .unwrap();
+        let _ = set_arg_edf(ssb, arg_value)?;
+    }
+    
+    /*
     if spank.is_option_set("dump-environment") {
         let _ = set_arg_dump_environment(ssb, true)?;
     }
+    */
 
     Ok(())
 }
 
+#[allow(unused_variables)]
 pub(crate) fn set_remaining_default_args(ssb: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
+    /*
     match ssb.container_mount_home {
         None => ssb.container_mount_home = Some(false),
         Some(_) => {}
@@ -519,10 +564,11 @@ pub(crate) fn set_remaining_default_args(ssb: &mut SpankSkyBox) -> Result<(), Bo
         None => ssb.dump_environment = Some(false),
         Some(_) => {}
     }
+    */
 
     Ok(())
 }
-
+/*
 pub(crate) fn get_mounts_from_string(input: String) -> Result<SarusMounts, Box<dyn Error>> {
     let v = input.split(',').map(|x| x.to_string()).collect();
     let mounts = sarus_mounts_from_strings(v)?;
@@ -591,3 +637,4 @@ pub(crate) fn get_name_and_flags(
 
     Ok((name, flags))
 }
+*/
