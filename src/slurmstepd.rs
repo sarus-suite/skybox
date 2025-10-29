@@ -1,5 +1,6 @@
 use std::error::Error;
 use nix::unistd::{Uid, setfsuid};
+//use std::sync::{Arc, Mutex};
 
 use slurm_spank::{SpankHandle, spank_log_verbose};
 
@@ -7,11 +8,16 @@ use crate::{
     SpankSkyBox,
     job_get_info,
     is_skybox_enabled,
-    privileged_setup_folders,
+    is_task_0,
+    remove_folders,
+    run_set_info,
     setup_folders,
+    setup_privileged_folders,
+    task_set_info,
 };
 use crate::args::*;
 use crate::environment::*;
+use crate::podman::*;
 
 #[allow(unused_variables)]
 pub(crate) fn slurmstepd_init(
@@ -73,30 +79,9 @@ pub(crate) fn slurmstepd_user_init(
     );
     */
 
-    let job = plugin.job.clone().unwrap();
-    let config = plugin.config.clone();
-    let container_name = format!("skybox_{}.{}", job.jobid, job.stepid);
-    let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, container_name);
-    setup_folders(podman_tmp_path, plugin, spank)?;
+    let _ = run_set_info(plugin, spank)?;
+    setup_folders(plugin, spank)?;
 
-    Ok(())
-}
-
-#[allow(unused_variables)]
-pub(crate) fn slurmstepd_task_init(
-    plugin: &mut SpankSkyBox,
-    spank: &mut SpankHandle,
-) -> Result<(), Box<dyn Error>> {
-    spank_log_verbose!("TASK_INIT");
-    Ok(())
-}
-
-#[allow(unused_variables)]
-pub(crate) fn slurmstepd_exit(
-    plugin: &mut SpankSkyBox,
-    spank: &mut SpankHandle,
-) -> Result<(), Box<dyn Error>> {
-    spank_log_verbose!("EXIT");
     Ok(())
 }
 
@@ -106,5 +91,49 @@ pub(crate) fn slurmstepd_task_init_privileged(
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
     //spank_log_verbose!("TASK_INIT_PRIVILEGED");
-    Ok(privileged_setup_folders(plugin, spank)?)
+    setup_privileged_folders(plugin, spank)
+}
+
+#[allow(unused_variables)]
+pub(crate) fn slurmstepd_task_init(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    spank_log_verbose!("TASK_INIT");
+    let _ = task_set_info(plugin, spank)?;
+
+    if is_task_0(plugin, spank) {
+        //podman_pull_once(plugin, spank)?;
+        //start podman
+    }
+
+    /*
+    spank_log_verbose!("{}: computed context:", "skybox");
+    spank_log_verbose!(
+        "{}: {}",
+        "skybox",
+        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
+    );
+    */
+   
+    Ok(())
+}
+
+#[allow(unused_variables)]
+pub(crate) fn slurmstepd_exit(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    spank_log_verbose!("EXIT");
+
+    spank_log_verbose!("{}: computed context:", "skybox");
+    spank_log_verbose!(
+        "{}: {}",
+        "skybox",
+        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
+    );
+
+    remove_folders(plugin, spank)?;
+
+    Ok(())
 }

@@ -4,7 +4,9 @@ use nix::libc::{uid_t, gid_t};
 use std::error::Error;
 use std::fs::Permissions;
 use std::os::unix::fs::{chown, PermissionsExt};
+use std::os::raw::c_int;
 use std::path::Path;
+//use std::sync::{Arc, Mutex};
 
 use slurm_spank::{Plugin, SpankHandle, SLURM_VERSION_NUMBER, SPANK_PLUGIN};
 
@@ -19,11 +21,12 @@ pub mod args;
 pub mod config;
 pub mod dispatch;
 pub mod environment;
+pub mod podman;
 pub mod slurmd;
 pub mod slurmstepd;
 pub mod srun;
 
-pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
+//pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
 
 SPANK_PLUGIN!(b"skybox", SLURM_VERSION_NUMBER, SpankSkyBox);
 
@@ -50,6 +53,7 @@ struct SpankSkyBox {
     config: SkyBoxConfig,
     edf: Option<EDF>,
     job: Option<Job>,
+    run: Option<Run>,
 }
 
 
@@ -59,10 +63,18 @@ struct Job {
     gid: gid_t,
     jobid: u32,
     stepid: u32,
+    taskid: c_int,
     nodeid: u32,
     local_task_count: u32,
     total_task_count: u32,
     cwd: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+struct Run {
+    name: String,
+    podman_tmp_path: String,
+    syncfile_path: String,
 }
 
 pub(crate) fn get_plugin_name() -> String {
@@ -114,6 +126,7 @@ pub(crate) fn job_get_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Re
         gid: spank.job_gid()?,
         jobid: spank.job_id()?,
         stepid: spank.job_stepid()?,
+        taskid: -1,
         nodeid: spank.job_nodeid()?,
         local_task_count: spank.job_local_task_count()?,
         total_task_count: spank.job_total_task_count()?,
@@ -123,7 +136,36 @@ pub(crate) fn job_get_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Re
     Ok(())
 }
 
-pub(crate) fn privileged_setup_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn task_set_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+    let taskid = spank.task_id()?;
+    let job = &mut ssb.job;
+    match job {
+        Some(j) => j.taskid = taskid,
+        None => {
+            return plugin_err("couldn't find job structure");
+        },
+    }
+    Ok(())
+}
+pub(crate) fn run_set_info(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+
+    let config = ssb.config.clone();
+    let job = ssb.job.clone().unwrap();
+    let edf = ssb.edf.clone().unwrap();
+    let name = format!("skybox_{}.{}", job.jobid, job.stepid);
+    let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
+    let syncfile_path = format!("{}/{}_import.done", edf.parallax_imagestore, name);
+
+    ssb.run = Some(Run {
+        name: name,
+        podman_tmp_path: podman_tmp_path,
+        syncfile_path: syncfile_path,
+    });
+
+    Ok(())
+}
+
+pub(crate) fn setup_privileged_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
     let job = ssb.job.clone().unwrap();
     let dir_path = format!("/run/user/{}", job.uid);
     if ! Path::new(&dir_path).exists() {
@@ -131,18 +173,27 @@ pub(crate) fn privileged_setup_folders(ssb: &mut SpankSkyBox, _spank: &mut Spank
         let dir_mode = 0o700;
         let dir_perms = Permissions::from_mode(dir_mode);
         std::fs::set_permissions(&dir_path, dir_perms)?;
-        let ret = match users::get_user_by_uid(job.uid) {
-            Some(u) => Ok(u),
-            None => Err(plugin_err("couldn't find user")),
+        let user = match users::get_user_by_uid(job.uid) {
+            Some(u) => u,
+            None => {
+                return plugin_err("couldn't find user");
+            },
         };
-        let user = ret.unwrap();
         let gid = user.primary_group_id();
         chown(dir_path, Some(job.uid), Some(gid))?;
     }
     Ok(())
 }
 
-pub(crate) fn setup_folders(base_path: String, _ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn setup_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+
+    let base_path = match ssb.run.clone() {
+        Some(r) => r.podman_tmp_path,
+        None => {
+            return plugin_err("couldn't find podman_tmp_path");
+        },
+    };
+
     let dir_mode = 0o700;
     let mut dir_path;
 
@@ -167,3 +218,50 @@ fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+pub(crate) fn remove_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+    
+    let base_path = match ssb.run.clone() {
+        Some(r) => r.podman_tmp_path,
+        None => {
+            return plugin_err("couldn't find podman_tmp_path");
+        },
+    };
+
+    if ! Path::new(&base_path).exists() {
+        return Ok(())
+    } else {
+        std::fs::remove_dir_all(&base_path)?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn is_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        },
+    };
+
+    if job.taskid == 0 {
+        return true;
+    }
+
+    return false;
+}
+
+pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        },
+    };
+
+    if job.nodeid == 0 {
+        return true;
+    }
+
+    return false;
+}
