@@ -1,6 +1,6 @@
 use serde::Serialize;
 use nix::libc::{uid_t, gid_t};
-//use std::collections::HashMap;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::Permissions;
 use std::os::unix::fs::{chown, PermissionsExt};
@@ -264,4 +264,31 @@ pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool
     }
 
     return false;
+}
+
+pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String,String> {
+    
+    let mut user_env = HashMap::new();
+    
+    let jobenv = match spank.job_env() {
+        Ok(j) => j,
+        Err(_) => {
+            return user_env;
+        }
+    };
+    
+    for e in jobenv.iter() {
+        let mut split = e.split("=");
+        
+        let size = split.clone().count();
+        if size < 2 || size > 3 {
+            continue;
+        }
+        
+        let k = split.next().unwrap();
+        let v = split.next().unwrap();
+        user_env.insert(String::from(k),String::from(v));
+    }
+
+    user_env
 }

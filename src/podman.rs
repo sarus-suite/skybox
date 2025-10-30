@@ -1,19 +1,36 @@
 use std::error::Error;
 use std::{path::PathBuf};
+use std::fs::File;
+use std::io::Write;
+use std::io::{BufReader, BufRead};
 
-use slurm_spank::{SpankHandle};
+use slurm_spank::{
+    SpankHandle,
+    spank_log_error,
+    spank_log_info,
+};
 
 use crate::{
     SpankSkyBox,
     is_node_0,
+    is_task_0,
     plugin_err,
+    plugin_string,
 };
 use sarus_suite_podman_driver::{self as pmd, PodmanCtx};
 
 pub(crate) fn podman_pull_once(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
 
-    if is_node_0(ssb, spank) {
-        podman_pull(ssb, spank)?;
+    if is_task_0(ssb, spank) && is_node_0(ssb, spank) {
+        match podman_pull(ssb, spank) {
+            Ok(_) => {
+                podman_pull_done(ssb, spank, 0)?;
+            },
+            Err(e) => {
+                spank_log_error!("{}", plugin_string(format!("{}",e).as_str()));
+                podman_pull_done(ssb, spank, -1)?;
+            },
+        }
     } else {
         podman_pull_wait(ssb, spank)?;
     }
@@ -21,7 +38,7 @@ pub(crate) fn podman_pull_once(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -
     Ok(())
 }
 
-pub(crate) fn podman_pull(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn podman_pull(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
 
     let edf = match &ssb.edf {
         Some(o) => o,
@@ -83,22 +100,69 @@ pub(crate) fn podman_pull(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Res
         )?;
         pmd::rmi(&edf.image, Some(&local_ctx));
         
-        if pmd::image_exists(&edf.image, Some(&ro_ctx)) {
-            podman_pull_done(ssb, spank, -1)?;
+        if !pmd::image_exists(&edf.image, Some(&ro_ctx)) {
             return plugin_err("couldn't find image on imagestore after migrate");
         }
     }
 
-    podman_pull_done(ssb, spank, 0)?;
         
     Ok(())
 }
 
 
-pub(crate) fn podman_pull_done(_ssb: &mut SpankSkyBox, _spank: &mut SpankHandle, _result: i32) -> Result<(), Box<dyn Error>> {
-    Ok(())
+pub(crate) fn podman_pull_done(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle, result: i32) -> Result<(), Box<dyn Error>> {
+   
+    let msg = plugin_string(format!("image importer completed with {} - communicating", result).as_str());
+   spank_log_info!("{msg}");
+
+    let run = match ssb.run.clone() {
+        Some(r) => r,
+        None => {
+            return plugin_err("cannot find run structure");
+        },
+    };
+
+    let mut file = File::create(run.syncfile_path)?;
+    write!(file, "{}\n", result)?;
+
+    if result != 0 {
+        return plugin_err("");
+    } else {
+        return Ok(());
+    }
 }
 
-pub(crate) fn podman_pull_wait(_ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn podman_pull_wait(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+
+    let msg1 = plugin_string("waiting on image importer");
+    spank_log_info!("{msg1}");
+    
+    let run = match ssb.run.clone() {
+        Some(r) => r,
+        None => {
+            return plugin_err("cannot find run structure");
+        },
+    };
+
+    let pause = std::time::Duration::new(1,0);
+    let file_path = run.syncfile_path.clone();
+    while std::fs::metadata(&file_path).is_err() {
+        std::thread::sleep(pause);
+    }
+
+    let f = File::open(file_path)?;
+    let mut reader = BufReader::new(f);
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+    let line = line.trim_end();
+    let result = line.parse::<i32>().unwrap();
+
+    let msg2 = plugin_string(format!("image importer exited with {}", result).as_str());
+    spank_log_info!("{msg2}");
+
+    if result != 0 {
+        return plugin_err(&msg2);
+    } 
+
     Ok(())
 }

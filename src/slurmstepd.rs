@@ -8,7 +8,7 @@ use crate::{
     SpankSkyBox,
     job_get_info,
     is_skybox_enabled,
-    is_task_0,
+    //is_task_0,
     remove_folders,
     run_set_info,
     setup_folders,
@@ -16,6 +16,7 @@ use crate::{
     task_set_info,
 };
 use crate::args::*;
+use crate::config::*;
 use crate::environment::*;
 use crate::podman::*;
 
@@ -79,6 +80,8 @@ pub(crate) fn slurmstepd_user_init(
     );
     */
 
+    render_user_config(plugin, spank)?;
+    update_edf_defaults_via_config(plugin)?;
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
 
@@ -102,10 +105,7 @@ pub(crate) fn slurmstepd_task_init(
     spank_log_verbose!("TASK_INIT");
     let _ = task_set_info(plugin, spank)?;
 
-    if is_task_0(plugin, spank) {
-        //podman_pull_once(plugin, spank)?;
-        //start podman
-    }
+    podman_pull_once(plugin, spank)?;
 
     /*
     spank_log_verbose!("{}: computed context:", "skybox");
