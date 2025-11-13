@@ -1,21 +1,13 @@
-use std::error::Error;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 //use std::collections::HashMap;
 //use std::process::Command;
 
-use slurm_spank::{
-    SpankHandle,
-    spank_log_error,
-};
+use slurm_spank::{SpankHandle, spank_log_error};
 
-use raster::{expand_vars_string};
+use raster::expand_vars_string;
 
-use crate::{
-    SpankSkyBox,
-    get_job_env,
-    get_plugin_name,
-    plugin_err,
-};
+use crate::{SpankSkyBox, get_job_env, get_plugin_name, plugin_err};
 
 const CONFIG_FILE: &str = "/etc/sarus/skybox.conf";
 
@@ -144,7 +136,7 @@ fn load_raw_config(filepath: String) -> RawConfig {
 
 /*
 fn get_job_env(spank: &mut SpankHandle) -> HashMap<String,String> {
-    
+
     let mut user_env = HashMap::new();
 
     let jobenv = match spank.job_env() {
@@ -153,15 +145,15 @@ fn get_job_env(spank: &mut SpankHandle) -> HashMap<String,String> {
             return user_env;
         }
     };
-    
+
     for e in jobenv.iter() {
         let mut split = e.split("=");
-        
+
         let size = split.clone().count();
         if size < 2 || size > 3 {
             continue;
         }
-        
+
         let k = split.next().unwrap();
         let v = split.next().unwrap();
         user_env.insert(String::from(k),String::from(v));
@@ -175,7 +167,7 @@ fn get_job_env(spank: &mut SpankHandle) -> HashMap<String,String> {
 fn expand_vars_string(input: String, env: &HashMap<String,String>) -> String {
 
     let output = Command::new("bash")
-    .arg("-c")    
+    .arg("-c")
     .arg(format!("echo -n {}",&input))
     .env_clear()
     .envs(env)
@@ -196,12 +188,10 @@ fn expand_vars_string(input: String, env: &HashMap<String,String>) -> String {
 */
 
 pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> SkyBoxConfig {
-
-    
     let plugin_argv = spank.plugin_argv();
 
     let mut config_file: Option<String> = None;
-    
+
     for args in plugin_argv.iter() {
         for arg in args.iter() {
             let mut fields = arg.split("=");
@@ -219,7 +209,7 @@ pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> 
             }
         }
     }
-    
+
     let config_file_path = match config_file {
         None => String::from(CONFIG_FILE),
         Some(cfg) => cfg,
@@ -230,54 +220,59 @@ pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> 
 
     // Set Config
     match setup_config(&c, plugin) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             spank_log_error!("{} at {}", e, config_file_path);
             spank_log_error!("[{}] plugin is disabled", get_plugin_name());
-        },
+        }
     }
 
     c
 }
 
-pub(crate) fn setup_config(config: &SkyBoxConfig, plugin: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
+pub(crate) fn setup_config(
+    config: &SkyBoxConfig,
+    plugin: &mut SpankSkyBox,
+) -> Result<(), Box<dyn Error>> {
     plugin.config = config.clone();
 
     if config.parallax_imagestore == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find parallax_imagestore"); 
+        return plugin_err("cannot find parallax_imagestore");
     }
-    
+
     if config.parallax_mount_program == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find parallax_mount_program"); 
+        return plugin_err("cannot find parallax_mount_program");
     }
-    
+
     if config.parallax_path == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find parallax_path"); 
+        return plugin_err("cannot find parallax_path");
     }
-    
+
     if config.podman_module == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find podman_module"); 
+        return plugin_err("cannot find podman_module");
     }
-    
+
     if config.podman_path == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find podman_path"); 
+        return plugin_err("cannot find podman_path");
     }
-    
+
     if config.podman_tmp_path == "" {
         plugin.config.enabled = false;
-        return plugin_err("cannot find podman_tmp_path"); 
+        return plugin_err("cannot find podman_tmp_path");
     }
 
     Ok(())
 }
 
-pub(crate) fn render_user_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-   
+pub(crate) fn render_user_config(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let ue = &Some(get_job_env(spank));
     let config = plugin.config.clone();
 
@@ -292,12 +287,12 @@ pub(crate) fn render_user_config(plugin: &mut SpankSkyBox, spank: &mut SpankHand
     };
 
     match setup_config(&user_config, plugin) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             spank_log_error!("{} when expanding variables", e);
             spank_log_error!("[{}] plugin is disabled", get_plugin_name());
             return plugin_err("cannot render user configuration");
-        },
+        }
     }
 
     Ok(())

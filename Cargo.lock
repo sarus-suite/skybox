@@ -1257,6 +1257,7 @@ name = "skybox"
 version = "0.1.0"
 dependencies = [
  "eyre",
+ "libc",
  "mktemp",
  "nix",
  "raster",

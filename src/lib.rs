@@ -1,24 +1,25 @@
+use nix::libc::{gid_t, uid_t};
 use serde::Serialize;
-use nix::libc::{uid_t, gid_t};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::Permissions;
-use std::os::unix::fs::{chown, PermissionsExt};
-use std::os::raw::c_int;
+use std::os::unix::fs::{PermissionsExt, chown};
+//use std::os::raw::c_int;
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
 
-use slurm_spank::{Plugin, SpankHandle, SLURM_VERSION_NUMBER, SPANK_PLUGIN};
+use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle, spank_log_error};
 
 //use raster::mount::SarusMounts;
-use crate::args::{SkyBoxArgs};
-use crate::config::{SkyBoxConfig};
+use crate::args::SkyBoxArgs;
+use crate::config::SkyBoxConfig;
 //use crate::environment::SkyBoxEDF;
-use raster::{EDF};
+use raster::EDF;
 
 pub mod alloc;
 pub mod args;
 pub mod config;
+pub mod container;
 pub mod dispatch;
 pub mod environment;
 pub mod podman;
@@ -56,14 +57,14 @@ struct SpankSkyBox {
     run: Option<Run>,
 }
 
-
 #[derive(Clone, Serialize, Default)]
 struct Job {
     uid: uid_t,
     gid: gid_t,
     jobid: u32,
     stepid: u32,
-    taskid: c_int,
+    local_task_id: u32,
+    global_task_id: u32,
     nodeid: u32,
     local_task_count: u32,
     total_task_count: u32,
@@ -73,6 +74,7 @@ struct Job {
 #[derive(Clone, Serialize, Default)]
 struct Run {
     name: String,
+    pid: u64,
     podman_tmp_path: String,
     syncfile_path: String,
 }
@@ -90,7 +92,6 @@ pub(crate) fn plugin_err(s: &str) -> Result<(), Box<dyn Error>> {
 }
 
 pub(crate) fn spank_getenv(spank: &mut SpankHandle, var: &str) -> String {
-
     match spank.getenv(var) {
         Ok(r) => match r {
             Some(v) => v,
@@ -101,8 +102,7 @@ pub(crate) fn spank_getenv(spank: &mut SpankHandle, var: &str) -> String {
 }
 
 pub(crate) fn is_skybox_enabled(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    
-    if ! ssb.config.enabled {
+    if !ssb.config.enabled {
         return false;
     }
 
@@ -113,10 +113,12 @@ pub(crate) fn is_skybox_enabled(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle)
     true
 }
 
-
-pub(crate) fn job_get_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn job_get_info(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let cwd = spank_getenv(spank, "PWD");
-    
+
     if cwd == "" {
         return plugin_err("couldn't get job cwd path");
     }
@@ -126,7 +128,8 @@ pub(crate) fn job_get_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Re
         gid: spank.job_gid()?,
         jobid: spank.job_id()?,
         stepid: spank.job_stepid()?,
-        taskid: -1,
+        local_task_id: u32::MAX,
+        global_task_id: u32::MAX,
         nodeid: spank.job_nodeid()?,
         local_task_count: spank.job_local_task_count()?,
         total_task_count: spank.job_total_task_count()?,
@@ -136,28 +139,39 @@ pub(crate) fn job_get_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Re
     Ok(())
 }
 
-pub(crate) fn task_set_info(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn task_set_info(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let taskid = spank.task_id()?;
+    let local_task_id = taskid as u32;
+    let global_task_id = spank.local_to_global_id(local_task_id)?;
     let job = &mut ssb.job;
     match job {
-        Some(j) => j.taskid = taskid,
+        Some(j) => {
+            j.local_task_id = local_task_id;
+            j.global_task_id = global_task_id;
+        }
         None => {
             return plugin_err("couldn't find job structure");
-        },
+        }
     }
     Ok(())
 }
-pub(crate) fn run_set_info(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-
+pub(crate) fn run_set_info(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let config = ssb.config.clone();
     let job = ssb.job.clone().unwrap();
     let edf = ssb.edf.clone().unwrap();
     let name = format!("skybox_{}.{}", job.jobid, job.stepid);
     let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
-    let syncfile_path = format!("{}/{}_import.done", edf.parallax_imagestore, name);
+    let syncfile_path = format!("{}/.{}_import.done", edf.parallax_imagestore, name);
 
     ssb.run = Some(Run {
         name: name,
+        pid: u64::MAX,
         podman_tmp_path: podman_tmp_path,
         syncfile_path: syncfile_path,
     });
@@ -165,10 +179,13 @@ pub(crate) fn run_set_info(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> R
     Ok(())
 }
 
-pub(crate) fn setup_privileged_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+pub(crate) fn setup_privileged_folders(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let job = ssb.job.clone().unwrap();
     let dir_path = format!("/run/user/{}", job.uid);
-    if ! Path::new(&dir_path).exists() {
+    if !Path::new(&dir_path).exists() {
         std::fs::create_dir_all(&dir_path)?;
         let dir_mode = 0o700;
         let dir_perms = Permissions::from_mode(dir_mode);
@@ -177,7 +194,7 @@ pub(crate) fn setup_privileged_folders(ssb: &mut SpankSkyBox, _spank: &mut Spank
             Some(u) => u,
             None => {
                 return plugin_err("couldn't find user");
-            },
+            }
         };
         let gid = user.primary_group_id();
         chown(dir_path, Some(job.uid), Some(gid))?;
@@ -185,13 +202,15 @@ pub(crate) fn setup_privileged_folders(ssb: &mut SpankSkyBox, _spank: &mut Spank
     Ok(())
 }
 
-pub(crate) fn setup_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-
+pub(crate) fn setup_folders(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let base_path = match ssb.run.clone() {
         Some(r) => r.podman_tmp_path,
         None => {
             return plugin_err("couldn't find podman_tmp_path");
-        },
+        }
     };
 
     let dir_mode = 0o700;
@@ -210,7 +229,7 @@ pub(crate) fn setup_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> 
 }
 
 fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
-    if ! Path::new(&path).exists() {
+    if !Path::new(&path).exists() {
         std::fs::create_dir_all(&path)?;
         let perms = Permissions::from_mode(mode);
         std::fs::set_permissions(&path, perms)?;
@@ -218,17 +237,19 @@ fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn remove_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-    
+pub(crate) fn remove_folders(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
     let base_path = match ssb.run.clone() {
         Some(r) => r.podman_tmp_path,
         None => {
             return plugin_err("couldn't find podman_tmp_path");
-        },
+        }
     };
 
-    if ! Path::new(&base_path).exists() {
-        return Ok(())
+    if !Path::new(&base_path).exists() {
+        return Ok(());
     } else {
         std::fs::remove_dir_all(&base_path)?;
     }
@@ -236,21 +257,37 @@ pub(crate) fn remove_folders(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) ->
     Ok(())
 }
 
-pub(crate) fn is_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
     let job = match ssb.job.clone() {
         Some(j) => j,
         None => {
             return false;
-        },
+        }
     };
 
-    if job.taskid == 0 {
+    if job.local_task_id == 0 {
         return true;
     }
 
     return false;
 }
 
+pub(crate) fn is_global_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        }
+    };
+
+    if job.global_task_id == 0 {
+        return true;
+    }
+
+    return false;
+}
+
+/*
 pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
     let job = match ssb.job.clone() {
         Some(j) => j,
@@ -265,30 +302,67 @@ pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool
 
     return false;
 }
+*/
 
-pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String,String> {
-    
+pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String, String> {
     let mut user_env = HashMap::new();
-    
+
     let jobenv = match spank.job_env() {
         Ok(j) => j,
         Err(_) => {
             return user_env;
         }
     };
-    
+
     for e in jobenv.iter() {
         let mut split = e.split("=");
-        
+
         let size = split.clone().count();
         if size < 2 || size > 3 {
             continue;
         }
-        
+
         let k = split.next().unwrap();
         let v = split.next().unwrap();
-        user_env.insert(String::from(k),String::from(v));
+        user_env.insert(String::from(k), String::from(v));
     }
 
     user_env
+}
+
+pub(crate) fn remote_unset_env_vars(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let edf_env = ssb.edf.clone().unwrap().env;
+    let mut unset_keys = vec![];
+
+    for (key, value) in edf_env.iter() {
+        if value == "" {
+            unset_keys.push(key);
+
+            match spank.getenv(key) {
+                Ok(opt) => match opt {
+                    Some(_) => (),
+                    None => continue,
+                },
+                Err(e) => {
+                    let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    spank_log_error!("{msg}");
+                    return Err(Box::new(e));
+                }
+            }
+
+            match spank.unsetenv(key) {
+                Ok(_) => {}
+                Err(e) => {
+                    let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    spank_log_error!("{msg}");
+                    return Err(Box::new(e));
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

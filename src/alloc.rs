@@ -13,7 +13,7 @@ pub(crate) fn alloc_init(
 }
 
 #[allow(unused_variables)]
-pub(crate) fn alloc_post_opt(
+pub(crate) fn alloc_init_post_opt(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {

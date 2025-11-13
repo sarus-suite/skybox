@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 eyre = "0.6.12"
+libc = "0.2.177"
 mktemp = "0.5.1"
 nix = { version = "0.30.1", features = ["user","fs"] }
 raster = { path = "../raster" }

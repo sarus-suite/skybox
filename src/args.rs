@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use slurm_spank::{SpankHandle, SpankOption};
 //use std::collections::HashMap;
 use std::error::Error;
@@ -213,7 +213,7 @@ pub(crate) fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dy
             has_arg: true,
         },
     );
-    /*    
+    /*
     opts = add_arg(
         opts,
         SpankArg {
@@ -316,10 +316,7 @@ pub(crate) fn set_arg_environment(
 }
 */
 
-pub(crate) fn set_arg_edf(
-    ssb: &mut SpankSkyBox,
-    value: String,
-) -> Result<(), Box<dyn Error>> {
+pub(crate) fn set_arg_edf(ssb: &mut SpankSkyBox, value: String) -> Result<(), Box<dyn Error>> {
     if value == "" {
         plugin_err("--edf: argument required")?
     }
@@ -527,7 +524,7 @@ pub(crate) fn load_plugin_args(
             .unwrap();
         let _ = set_arg_edf(ssb, arg_value)?;
     }
-    
+
     /*
     if spank.is_option_set("dump-environment") {
         let _ = set_arg_dump_environment(ssb, true)?;

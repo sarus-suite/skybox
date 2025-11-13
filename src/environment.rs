@@ -2,16 +2,12 @@
 use slurm_spank::{
     Context,
     SpankHandle,
-   //spank_log_user
+    //spank_log_user
 };
 //use std::collections::HashMap;
 use std::error::Error;
 
-use crate::{
-    SpankSkyBox,
-    get_job_env,
-    spank_getenv,
-};
+use crate::{SpankSkyBox, get_job_env, spank_getenv};
 
 /*
 #[derive(Default, Serialize, Deserialize)]
@@ -24,12 +20,11 @@ pub(crate) fn load_environment(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-
     let edf_name = match &ssb.args.edf {
         Some(name) => String::from(name),
         None => {
             return Ok(());
-        },
+        }
     };
 
     let edf: raster::EDF;
@@ -50,7 +45,10 @@ pub(crate) fn load_environment(
     Ok(())
 }
 
-fn spank_remote_edf_render(path: String, spank: &mut SpankHandle) -> Result<raster::EDF, Box<dyn Error>> {
+fn spank_remote_edf_render(
+    path: String,
+    spank: &mut SpankHandle,
+) -> Result<raster::EDF, Box<dyn Error>> {
     let sp = spank_remote_get_search_paths(spank);
     let ue = &Some(get_job_env(spank));
     Ok(raster::render_from_search_paths(path, sp, ue)?)
@@ -89,12 +87,11 @@ fn spank_remote_get_user_search_paths(spank: &mut SpankHandle) -> Vec<String> {
 }
 
 pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
-    
     let mut edf = match ssb.edf.clone() {
         Some(e) => e,
         None => {
             return Ok(());
-        },
+        }
     };
 
     let c = ssb.config.clone();
@@ -106,27 +103,27 @@ pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<()
     if edf.parallax_imagestore == "" {
         edf.parallax_imagestore = c.parallax_imagestore;
     }
-    
+
     if edf.parallax_mount_program == "" {
         edf.parallax_mount_program = c.parallax_mount_program;
     }
-    
+
     if edf.parallax_path == "parallax" {
         edf.parallax_path = c.parallax_path;
     }
-    
+
     if edf.podman_module == "hpc" {
         edf.podman_module = c.podman_module;
     }
-    
+
     if edf.podman_path == "podman" {
         edf.podman_path = c.podman_path;
     }
-    
+
     if edf.podman_tmp_path == "/dev/shm" {
         edf.podman_tmp_path = c.podman_tmp_path;
     }
-    
+
     ssb.edf = Some(edf);
 
     Ok(())
