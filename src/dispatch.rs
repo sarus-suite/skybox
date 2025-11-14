@@ -105,6 +105,14 @@ unsafe impl Plugin for SpankSkyBox {
         slurmd_exit(self, spank)
     }
 
+    fn task_exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+        if !self.config.enabled {
+            return Ok(());
+        }
+
+        slurmstepd_task_exit(self, spank)
+    }
+
     fn task_init_privileged(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
         if !self.config.enabled {
             return Ok(());

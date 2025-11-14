@@ -26,12 +26,15 @@ pub(crate) fn container_join(
 
         // User namespace
         let userns_path = format!("/proc/{pid}/ns/user");
-        let userns_path_c = userns_path + "\0";
+        let userns_path_c = userns_path.clone() + "\0";
         let userns_path_ptr: *const i8 = userns_path_c.as_ptr() as *const i8;
 
         let userns_fd = libc::open(userns_path_ptr, libc::O_RDONLY | libc::O_CLOEXEC);
         if userns_fd < 0 {
-            return plugin_err("failed to open userns file");
+            //return plugin_err("failed to open userns file");
+            let errno = std::io::Error::last_os_error().raw_os_error().unwrap();
+            let msg = format!("failed to open userns file \"{userns_path}\", error: {errno}");
+            return plugin_err(&msg);
         }
 
         // Mount namespace
@@ -50,7 +53,9 @@ pub(crate) fn container_join(
         // Join user namespace
         let ret = libc::setns(userns_fd, libc::CLONE_NEWUSER);
         if ret < 0 {
-            return plugin_err("failed to join user namespace");
+            let errno = std::io::Error::last_os_error().raw_os_error().unwrap();
+            let msg = format!("failed to join user namespace, error: {errno}");
+            return plugin_err(&msg);
         }
 
         // Join mount namespace

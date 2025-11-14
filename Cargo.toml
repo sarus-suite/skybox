@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 eyre = "0.6.12"
 libc = "0.2.177"
 mktemp = "0.5.1"
-nix = { version = "0.30.1", features = ["user","fs"] }
+nix = { version = "0.30.1", features = ["user","fs","signal"] }
 raster = { path = "../raster" }
 sarus-suite-podman-driver = { path = "../podman-driver" }
 serde = { version = "1.0.228", features = ["derive","rc"] }

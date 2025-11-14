@@ -222,7 +222,7 @@ pub(crate) fn setup_folders(
     dir_path = format!("{}/graphroot", base_path);
     create_folder(dir_path, dir_mode)?;
 
-    dir_path = format!("{}/runroott", base_path);
+    dir_path = format!("{}/runroot", base_path);
     create_folder(dir_path, dir_mode)?;
 
     Ok(())
@@ -237,7 +237,7 @@ fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn remove_folders(
+pub(crate) fn cleanup_fs_local(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
@@ -249,9 +249,43 @@ pub(crate) fn remove_folders(
     };
 
     if !Path::new(&base_path).exists() {
-        return Ok(());
+        ()
     } else {
-        std::fs::remove_dir_all(&base_path)?;
+        match std::fs::remove_dir_all(&base_path) {
+            Ok(_) => (),
+            Err(e) => {
+                let msg = format!("couldn't cleanup \"{:#?}\", error {}", &base_path, e);
+                return plugin_err(&msg);
+            }
+        };
+    }
+    Ok(())
+}
+
+pub(crate) fn cleanup_fs_shared_once(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if !is_node_0(ssb, spank) {
+        return Ok(());
+    }
+
+    let syncfile_path = match ssb.run.clone() {
+        Some(r) => r.syncfile_path,
+        None => {
+            return plugin_err("couldn't find syncfile_path");
+        }
+    };
+
+    match std::fs::remove_file(&syncfile_path) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!(
+                "couldn't cleanup syncfile_path \"{:#?}\", error {}",
+                &syncfile_path, e
+            );
+            return plugin_err(&msg);
+        }
     }
 
     Ok(())
@@ -287,13 +321,12 @@ pub(crate) fn is_global_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) 
     return false;
 }
 
-/*
 pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
     let job = match ssb.job.clone() {
         Some(j) => j,
         None => {
             return false;
-        },
+        }
     };
 
     if job.nodeid == 0 {
@@ -302,7 +335,6 @@ pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool
 
     return false;
 }
-*/
 
 pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String, String> {
     let mut user_env = HashMap::new();

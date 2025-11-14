@@ -15,11 +15,12 @@ use crate::environment::*;
 use crate::podman::*;
 use crate::{
     SpankSkyBox,
+    cleanup_fs_local,
+    cleanup_fs_shared_once,
     is_skybox_enabled,
     job_get_info,
     //is_task_0,
     remote_unset_env_vars,
-    remove_folders,
     run_set_info,
     setup_folders,
     setup_privileged_folders,
@@ -135,16 +136,15 @@ pub(crate) fn slurmstepd_task_init(
     let _ = task_set_info(plugin, spank)?;
 
     podman_pull_once(plugin, spank)?;
+    //let pause = std::time::Duration::new(60,0);
+    //std::thread::sleep(pause);
     podman_start_once(plugin, spank)?;
+    //std::thread::sleep(pause);
     container_join(plugin, spank)?;
     container_wait_cwd(plugin, spank)?;
     container_import_env(plugin, spank)?;
     container_set_workdir(plugin, spank)?;
-
-    /*
-    let pause = std::time::Duration::new(300,0);
-    std::thread::sleep(pause);
-    */
+    //std::thread::sleep(pause);
 
     /*
     spank_log_verbose!("{}: computed context:", "skybox");
@@ -158,6 +158,23 @@ pub(crate) fn slurmstepd_task_init(
     Ok(())
 }
 
+#[allow(unused_variables)]
+pub(crate) fn slurmstepd_task_exit(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if !is_skybox_enabled(plugin, spank) {
+        return Ok(());
+    }
+    spank_log_verbose!("TASK_EXIT");
+    let _ = task_set_info(plugin, spank)?;
+    podman_stop_once(plugin, spank)?;
+    //let pause = std::time::Duration::new(60,0);
+    //std::thread::sleep(pause);
+    Ok(())
+}
+
+#[allow(unused_variables)]
 #[allow(unused_variables)]
 pub(crate) fn slurmstepd_exit(
     plugin: &mut SpankSkyBox,
@@ -175,8 +192,9 @@ pub(crate) fn slurmstepd_exit(
         serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
     );
     */
-
-    remove_folders(plugin, spank)?;
+    //podman_stop(plugin, spank)?;
+    cleanup_fs_shared_once(plugin, spank)?;
+    cleanup_fs_local(plugin, spank)?;
 
     Ok(())
 }
