@@ -13,6 +13,7 @@ use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle, spank
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
 use crate::config::SkyBoxConfig;
+use crate::sync::sync_cleanup_fs_local_dir_completed;
 //use crate::environment::SkyBoxEDF;
 use raster::EDF;
 
@@ -26,6 +27,7 @@ pub mod podman;
 pub mod slurmd;
 pub mod slurmstepd;
 pub mod srun;
+pub mod sync;
 
 //pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
 
