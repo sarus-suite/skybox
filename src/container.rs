@@ -3,6 +3,7 @@ use std::env::set_current_dir;
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+//use std::io::Write;
 use std::path::Path;
 
 use slurm_spank::{
@@ -13,7 +14,13 @@ use slurm_spank::{
     //spank_log_user,
 };
 
-use crate::{SpankSkyBox, plugin_err, plugin_string};
+use crate::{
+    SpankSkyBox,
+    //create_folder,
+    //is_local_task_0,
+    plugin_err,
+    plugin_string
+};
 
 pub(crate) fn container_join(
     ssb: &mut SpankSkyBox,
@@ -63,6 +70,7 @@ pub(crate) fn container_join(
         if ret < 0 {
             return plugin_err("failed to join mount namespace");
         }
+
     }
 
     Ok(())
@@ -186,3 +194,69 @@ pub(crate) fn container_import_env(
 
     Ok(())
 }
+/*
+pub(crate) fn container_join_once(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+
+    if !is_local_task_0(ssb, spank) {
+        return container_join_wait(ssb, spank);
+    } 
+
+    //Workaround: write pidfile internally
+    let pid = ssb.run.clone().unwrap().pid;
+    let base_path = ssb.run.clone().unwrap().podman_tmp_path;
+    let dir_mode = 0o700;
+    let dir_path;
+    dir_path = format!("{}", base_path);
+    spank_log_debug!("dir_path: {}",&dir_path);
+    spank_log_debug!("dir_mode: {}",&dir_mode);
+    create_folder(dir_path.clone(), dir_mode)?;
+    let internal_pidfile_path = format!("{}/pidfile2", &dir_path);
+    spank_log_debug!("internal_pidfile_path: {}",&internal_pidfile_path);
+    spank_log_debug!("PID: {}",&pid);
+    let mut internal_pidfile = File::create(&internal_pidfile_path)?;
+    write!(internal_pidfile, "{}\n", pid)?;
+
+    Ok(())
+}
+
+pub(crate) fn container_join_wait(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let run = match &ssb.run {
+        Some(o) => o,
+        None => {
+            return plugin_err("couldn't find run");
+        }
+    };
+
+    let pidfile = format!("{}/pidfile2", run.podman_tmp_path);
+    let strpid;
+
+    loop {
+        let result = std::fs::read_to_string(&pidfile);
+        match result {
+            Ok(s) => {
+                strpid = s;
+                break;
+            }
+            Err(e) => {
+                let msg = plugin_string(
+                    format!("couldn't read pidfile yet: {e}, wait 1 sec and retry").as_str(),
+                );
+                spank_log_debug!("{msg}");
+
+                let pause = std::time::Duration::new(1, 0);
+                std::thread::sleep(pause);
+            }
+        }
+    }
+
+    let pid: u64 = strpid.parse()?;
+
+    return Ok(());
+}
+*/

@@ -8,11 +8,19 @@ use std::os::unix::fs::{PermissionsExt, chown};
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
 
-use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle, spank_log_error};
+use slurm_spank::{
+    Plugin,
+    SLURM_VERSION_NUMBER,
+    SPANK_PLUGIN,
+    SpankHandle,
+    spank_log_error,
+    spank_log_debug,
+};
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
 use crate::config::SkyBoxConfig;
+use crate::podman::podman_get_pid_from_file;
 use crate::sync::sync_cleanup_fs_local_dir_completed;
 //use crate::environment::SkyBoxEDF;
 use raster::EDF;
@@ -171,9 +179,14 @@ pub(crate) fn run_set_info(
     let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
     let syncfile_path = format!("{}/.{}_import.done", edf.parallax_imagestore, name);
 
+    let pid = match podman_get_pid_from_file(ssb) {
+        Ok(s) => s,
+        Err(_) => u64::MAX,
+    };
+
     ssb.run = Some(Run {
         name: name,
-        pid: u64::MAX,
+        pid: pid,
         podman_tmp_path: podman_tmp_path,
         syncfile_path: syncfile_path,
     });
@@ -230,7 +243,7 @@ pub(crate) fn setup_folders(
     Ok(())
 }
 
-fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
+pub(crate) fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
     if !Path::new(&path).exists() {
         std::fs::create_dir_all(&path)?;
         let perms = Permissions::from_mode(mode);
@@ -243,6 +256,8 @@ pub(crate) fn cleanup_fs_local(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
+    spank_log_debug!("cleanup_fs_local");
+
     let base_path = match ssb.run.clone() {
         Some(r) => r.podman_tmp_path,
         None => {
@@ -250,17 +265,22 @@ pub(crate) fn cleanup_fs_local(
         }
     };
 
-    if !Path::new(&base_path).exists() {
-        ()
-    } else {
-        match std::fs::remove_dir_all(&base_path) {
-            Ok(_) => (),
-            Err(e) => {
-                let msg = format!("couldn't cleanup \"{:#?}\", error {}", &base_path, e);
-                return plugin_err(&msg);
-            }
-        };
+    while !Path::new(&base_path).exists() {
+        let msg = plugin_string(format!("couldn't find {}, wait 1 sec and retry", &base_path).as_str());
+        spank_log_debug!("{msg}");
+
+        let pause = std::time::Duration::new(1, 0);
+        std::thread::sleep(pause);
     }
+
+    spank_log_debug!("Cleanup {}",&base_path);
+    match std::fs::remove_dir_all(&base_path) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!("couldn't cleanup \"{:#?}\", error {}", &base_path, e);
+            return plugin_err(&msg);
+        }
+    };
     Ok(())
 }
 

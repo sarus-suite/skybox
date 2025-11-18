@@ -4,7 +4,6 @@ use std::error::Error;
 
 use slurm_spank::{
     SpankHandle,
-    //spank_log_user,
     spank_log_verbose,
 };
 
@@ -19,7 +18,6 @@ use crate::{
     cleanup_fs_shared_once,
     is_skybox_enabled,
     job_get_info,
-    //is_task_0,
     remote_unset_env_vars,
     run_set_info,
     setup_folders,
@@ -45,16 +43,10 @@ pub(crate) fn slurmstepd_init_post_opt(
     spank_log_verbose!("INIT_POST_OPT");
     let _ = load_plugin_args(plugin, spank)?;
 
-    //let mut search_paths = vec![String::from("/etc/edf")];
-
     let user_uid = spank.job_uid()?;
     let old_uid = setfsuid(Uid::from(user_uid));
-    spank_log_verbose!("JOB_UID:{user_uid}");
-    spank_log_verbose!("OLD_JOB_UID:{old_uid}");
     let _ = load_environment(plugin, spank)?;
     let _ = setfsuid(Uid::from(old_uid));
-
-    //let _ = set_remaining_default_args(plugin)?;
 
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
@@ -85,6 +77,7 @@ pub(crate) fn slurmstepd_user_init(
         return Ok(());
     }
     spank_log_verbose!("USER_INIT");
+
     /*
     spank_log_verbose!("{}: computed context:", "skybox");
     spank_log_verbose!(
@@ -99,13 +92,14 @@ pub(crate) fn slurmstepd_user_init(
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
 
+    /*
     spank_log_verbose!("{}: computed context:", "skybox");
     spank_log_verbose!(
         "{}: {}",
         "skybox",
         serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
     );
-    //podman_pull_once(plugin, spank)?;
+    */
 
     Ok(())
 }
@@ -136,15 +130,11 @@ pub(crate) fn slurmstepd_task_init(
     let _ = task_set_info(plugin, spank)?;
 
     podman_pull_once(plugin, spank)?;
-    //let pause = std::time::Duration::new(60,0);
-    //std::thread::sleep(pause);
     podman_start_once(plugin, spank)?;
-    //std::thread::sleep(pause);
     container_join(plugin, spank)?;
     container_wait_cwd(plugin, spank)?;
     container_import_env(plugin, spank)?;
     container_set_workdir(plugin, spank)?;
-    //std::thread::sleep(pause);
 
     /*
     spank_log_verbose!("{}: computed context:", "skybox");
@@ -168,9 +158,19 @@ pub(crate) fn slurmstepd_task_exit(
     }
     spank_log_verbose!("TASK_EXIT");
     let _ = task_set_info(plugin, spank)?;
+    let _ = run_set_info(plugin, spank)?;
+
+    /*
+    spank_log_verbose!("{}: computed context:", "skybox");
+    spank_log_verbose!(
+        "{}: {}",
+        "skybox",
+        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
+    );
+    */
+
     podman_stop_once(plugin, spank)?;
-    //let pause = std::time::Duration::new(60,0);
-    //std::thread::sleep(pause);
+
     Ok(())
 }
 
@@ -184,6 +184,7 @@ pub(crate) fn slurmstepd_exit(
         return Ok(());
     }
     spank_log_verbose!("EXIT");
+
     /*
     spank_log_verbose!("{}: computed context:", "skybox");
     spank_log_verbose!(
@@ -191,10 +192,11 @@ pub(crate) fn slurmstepd_exit(
         "skybox",
         serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
     );
+
     */
-    //podman_stop(plugin, spank)?;
-    cleanup_fs_shared_once(plugin, spank)?;
     cleanup_fs_local(plugin, spank)?;
+    cleanup_fs_shared_once(plugin, spank)?;
+
 
     Ok(())
 }
