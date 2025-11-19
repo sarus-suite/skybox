@@ -1,20 +1,14 @@
 use std::error::Error;
 use std::path::Path;
 
-use slurm_spank::{
-    SpankHandle,
-};
+use slurm_spank::SpankHandle;
 
-use crate::{
-    SpankSkyBox,
-    plugin_err,
-};
+use crate::{SpankSkyBox, plugin_err};
 
 pub(crate) fn sync_cleanup_fs_local_dir_completed(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-
     let base_path = match ssb.run.clone() {
         Some(r) => r.podman_tmp_path,
         None => {
@@ -30,7 +24,10 @@ pub(crate) fn sync_cleanup_fs_local_dir_completed(
         match std::fs::remove_dir_all(&completed_dir_path) {
             Ok(_) => (),
             Err(e) => {
-                let msg = format!("couldn't cleanup \"{:#?}\", error {}", &completed_dir_path, e);
+                let msg = format!(
+                    "couldn't cleanup \"{:#?}\", error {}",
+                    &completed_dir_path, e
+                );
                 return plugin_err(&msg);
             }
         };

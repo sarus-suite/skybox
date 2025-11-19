@@ -8,14 +8,7 @@ use std::os::unix::fs::{PermissionsExt, chown};
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
 
-use slurm_spank::{
-    Plugin,
-    SLURM_VERSION_NUMBER,
-    SPANK_PLUGIN,
-    SpankHandle,
-    spank_log_error,
-    spank_log_debug,
-};
+use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
@@ -38,6 +31,7 @@ pub mod srun;
 pub mod sync;
 
 //pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 SPANK_PLUGIN!(b"skybox", SLURM_VERSION_NUMBER, SpankSkyBox);
 
@@ -89,6 +83,34 @@ struct Run {
     syncfile_path: String,
 }
 
+#[macro_export]
+macro_rules! skybox_log_debug {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Debug, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
+
+#[macro_export]
+macro_rules! skybox_log_error {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Error, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
+
+#[macro_export]
+macro_rules! skybox_log_info {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Info, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
+
+#[macro_export]
+macro_rules! skybox_log_verbose {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Verbose, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
+
 pub(crate) fn get_plugin_name() -> String {
     return String::from("skybox");
 }
@@ -99,6 +121,10 @@ pub(crate) fn plugin_string(s: &str) -> String {
 
 pub(crate) fn plugin_err(s: &str) -> Result<(), Box<dyn Error>> {
     return Err(plugin_string(s).into());
+}
+
+pub(crate) fn get_local_task_id(ssb: &SpankSkyBox) -> u32 {
+    return ssb.job.clone().unwrap().local_task_id;
 }
 
 pub(crate) fn spank_getenv(spank: &mut SpankHandle, var: &str) -> String {
@@ -256,8 +282,6 @@ pub(crate) fn cleanup_fs_local(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    spank_log_debug!("cleanup_fs_local");
-
     let base_path = match ssb.run.clone() {
         Some(r) => r.podman_tmp_path,
         None => {
@@ -266,14 +290,15 @@ pub(crate) fn cleanup_fs_local(
     };
 
     while !Path::new(&base_path).exists() {
-        let msg = plugin_string(format!("couldn't find {}, wait 1 sec and retry", &base_path).as_str());
-        spank_log_debug!("{msg}");
+        //let msg = plugin_string(format!("couldn't find {}, wait 1 sec and retry", &base_path).as_str());
+        //spank_log_debug!("{msg}");
+        skybox_log_debug!("couldn't find {}, wait 1 sec and retry", &base_path);
 
         let pause = std::time::Duration::new(1, 0);
         std::thread::sleep(pause);
     }
 
-    spank_log_debug!("Cleanup {}",&base_path);
+    skybox_log_debug!("delete {}", &base_path);
     match std::fs::remove_dir_all(&base_path) {
         Ok(_) => (),
         Err(e) => {
@@ -299,6 +324,7 @@ pub(crate) fn cleanup_fs_shared_once(
         }
     };
 
+    skybox_log_debug!("delete {}", &syncfile_path);
     match std::fs::remove_file(&syncfile_path) {
         Ok(_) => (),
         Err(e) => {
@@ -401,8 +427,9 @@ pub(crate) fn remote_unset_env_vars(
                     None => continue,
                 },
                 Err(e) => {
-                    let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
-                    spank_log_error!("{msg}");
+                    //let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    //spank_log_error!("{msg}");
+                    skybox_log_error!("Cannot find env variable \"{key}\" to unset: {e}");
                     return Err(Box::new(e));
                 }
             }
@@ -410,8 +437,9 @@ pub(crate) fn remote_unset_env_vars(
             match spank.unsetenv(key) {
                 Ok(_) => {}
                 Err(e) => {
-                    let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
-                    spank_log_error!("{msg}");
+                    //let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    //spank_log_error!("{msg}");
+                    skybox_log_error!("failed to unset {key}: {e}");
                     return Err(Box::new(e));
                 }
             }
@@ -419,4 +447,13 @@ pub(crate) fn remote_unset_env_vars(
     }
 
     Ok(())
+}
+
+#[allow(dead_code)]
+pub(crate) fn skybox_log_context(ssb: &SpankSkyBox) -> () {
+    skybox_log_verbose!("computed context:");
+    skybox_log_verbose!(
+        "{}",
+        serde_json::to_string_pretty(&ssb).unwrap_or(String::from("ERROR"))
+    );
 }

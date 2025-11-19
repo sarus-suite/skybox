@@ -4,23 +4,22 @@ use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-use slurm_spank::{
-    SpankHandle,
-    spank_log_debug,
-    spank_log_error,
-    spank_log_info,
-};
+use slurm_spank::SpankHandle;
 
-use sarus_suite_podman_driver::{self as pmd, PodmanCtx};
+use sarus_suite_podman_driver::{self as pmd, ContainerCtx, ExecutedCommand, PodmanCtx};
 
 use crate::{
     SpankSkyBox,
     //cleanup_fs_local,
     //cleanup_fs_shared_once,
+    get_local_task_id,
     is_global_task_0,
     is_local_task_0,
     plugin_err,
     plugin_string,
+    skybox_log_debug,
+    skybox_log_error,
+    //skybox_log_info,
     sync_cleanup_fs_local_dir_completed,
 };
 
@@ -34,7 +33,8 @@ pub(crate) fn podman_pull_once(
                 podman_pull_done(ssb, spank, 0)?;
             }
             Err(e) => {
-                spank_log_error!("{}", plugin_string(format!("{}", e).as_str()));
+                //spank_log_error!("{}", plugin_string(format!("{}", e).as_str()));
+                skybox_log_error!("{e}");
                 podman_pull_done(ssb, spank, -1)?;
             }
         }
@@ -93,18 +93,25 @@ pub(crate) fn podman_pull(
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
     };
 
-    if !pmd::image_exists(&edf.image, Some(&ro_ctx)) {
-        pmd::pull(&edf.image, Some(&local_ctx));
+    if !image_exists(&edf.image, &ro_ctx) {
+        skybox_log_debug!(
+            "pulling image \"{}\" from remote in local graphroot",
+            edf.image
+        );
+        pull(&edf.image, &local_ctx);
 
-        if !pmd::image_exists(&edf.image, Some(&local_ctx)) {
+        if !image_exists(&edf.image, &local_ctx) {
             return plugin_err("couldn't find image locally after pull");
         }
 
-        pmd::parallax_migrate(&PathBuf::from(&edf.parallax_path), &migrate_ctx, &edf.image)?;
-        pmd::rmi(&edf.image, Some(&local_ctx));
+        skybox_log_debug!("migrating image \"{}\" to shared imagestore", edf.image);
+        parallax_migrate(&edf.parallax_path, &migrate_ctx, &edf.image)?;
 
-        if !pmd::image_exists(&edf.image, Some(&ro_ctx)) {
-            return plugin_err("couldn't find image on imagestore after migrate");
+        skybox_log_debug!("removing image \"{}\" from local graphroot", edf.image);
+        rmi(&edf.image, &local_ctx);
+
+        if !image_exists(&edf.image, &ro_ctx) {
+            return plugin_err("couldn't find image on shared imagestore after migration");
         }
     }
 
@@ -116,9 +123,9 @@ pub(crate) fn podman_pull_done(
     _spank: &mut SpankHandle,
     result: i32,
 ) -> Result<(), Box<dyn Error>> {
-    let msg =
-        plugin_string(format!("image importer completed with {} - communicating", result).as_str());
-    spank_log_info!("{msg}");
+    //let msg =
+    //    plugin_string(format!("image importer completed with {} - communicating", result).as_str());
+    //spank_log_info!("{msg}");
 
     let run = match ssb.run.clone() {
         Some(r) => r,
@@ -126,6 +133,11 @@ pub(crate) fn podman_pull_done(
             return plugin_err("cannot find run structure");
         }
     };
+    skybox_log_debug!(
+        "task {} - image importer completed with {} - communicating",
+        get_local_task_id(ssb),
+        result
+    );
 
     let mut file = File::create(run.syncfile_path)?;
     write!(file, "{}\n", result)?;
@@ -142,8 +154,12 @@ pub(crate) fn podman_pull_wait(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let msg1 = plugin_string("waiting on image importer");
-    spank_log_info!("{msg1}");
+    //let msg1 = plugin_string("waiting on image importer");
+    //spank_log_info!("{msg1}");
+    skybox_log_debug!(
+        "task {} - waiting on image importer",
+        get_local_task_id(ssb)
+    );
 
     let run = match ssb.run.clone() {
         Some(r) => r,
@@ -166,7 +182,12 @@ pub(crate) fn podman_pull_wait(
     let result = line.parse::<i32>().unwrap();
 
     let msg2 = plugin_string(format!("image importer exited with {}", result).as_str());
-    spank_log_info!("{msg2}");
+    //spank_log_info!("{msg2}");
+    skybox_log_debug!(
+        "task {} - image importer exited with {}",
+        get_local_task_id(ssb),
+        result
+    );
 
     if result != 0 {
         return plugin_err(&msg2);
@@ -179,7 +200,6 @@ pub(crate) fn podman_start_once(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-
     if is_local_task_0(ssb, spank) {
         podman_start(ssb, spank)?;
     }
@@ -228,22 +248,10 @@ pub(crate) fn podman_start(
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
     };
 
-    let output = pmd::run_from_edf_output(&edf, Some(&run_ctx), &c_ctx, command);
-
-    match output.status.code() {
-        Some(rc) => {
-            if rc != 0 {
-                return plugin_err(format!("podman run exited with {rc}").as_str());
-            }
-        }
-        None => return plugin_err("podman run failed badly"),
-    };
-
-    return Ok(());
+    return podman_run(&edf, &run_ctx, &c_ctx, command);
 }
 
 pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box<dyn Error>> {
-
     let run = match &ssb.run {
         Some(o) => o,
         None => {
@@ -259,14 +267,14 @@ pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box
             Err(_) => {
                 let err_msg = format!("cannot read pid from {pidfile}");
                 return Err(err_msg.into());
-            },
+            }
         };
         let pid: u64 = match strpid.parse() {
             Ok(p) => p,
             Err(_) => {
                 let err_msg = format!("cannot convert {strpid} to number");
                 return Err(err_msg.into());
-            },
+            }
         };
         return Ok(pid);
     } else {
@@ -297,10 +305,11 @@ pub(crate) fn podman_start_wait(
                 break;
             }
             Err(e) => {
-                let msg = plugin_string(
-                    format!("couldn't read pidfile yet: {e}, wait 1 sec and retry").as_str(),
-                );
-                spank_log_debug!("{msg}");
+                //let msg = plugin_string(
+                //    format!("couldn't read pidfile yet: {e}, wait 1 sec and retry").as_str(),
+                //);
+                //spank_log_debug!("{msg}");
+                skybox_log_debug!("couldn't read pidfile yet: {e}, wait 1 sec and retry");
 
                 let pause = std::time::Duration::new(1, 0);
                 std::thread::sleep(pause);
@@ -322,21 +331,20 @@ pub(crate) fn podman_stop(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    
     let run = match &ssb.run {
         Some(o) => o,
         None => {
             return plugin_err("couldn't find run data");
         }
     };
-    
+
     let pid = run.pid;
 
     /*
     let mut check_mount = std::process::Command::new("bash")
         .args(["-c", "mount | grep overlay"])
         .spawn()?;
-    
+
     let mut check_mount_output = match check_mount.wait_with_output() {
         Ok(out) => out,
         Err(e) => {
@@ -384,7 +392,7 @@ pub(crate) fn podman_stop(
         .args(["-c", "mount | grep overlay"])
         .spawn()?;
     //check_mount.wait_with_output()?;
-    
+
     check_mount_output = match check_mount.wait_with_output() {
         Ok(out) => out,
         Err(e) => {
@@ -408,7 +416,7 @@ pub(crate) fn podman_stop(
             return Err(msg.into());
         },
     };
-    
+
     check_mount_stdout = String::from_utf8(check_mount_output.stdout)?;
     check_mount_stderr = String::from_utf8(check_mount_output.stderr)?;
 
@@ -520,12 +528,10 @@ pub(crate) fn podman_stop(
     Ok(())
 }
 
-
 pub(crate) fn podman_stop_once(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-
     let run = ssb.run.clone().unwrap();
     let job = ssb.job.clone().unwrap();
     let task_id = job.local_task_id;
@@ -549,4 +555,109 @@ pub(crate) fn podman_stop_once(
     }
 
     Ok(())
+}
+
+pub(crate) fn image_exists(image: &str, ctx: &PodmanCtx) -> bool {
+    let prefix = "podman image exists";
+
+    let eb = pmd::image_exists_eb(&image, Some(&ctx));
+
+    log_ec(eb.ec, prefix);
+
+    eb.result
+}
+
+pub(crate) fn pull(image: &str, ctx: &PodmanCtx) -> () {
+    let prefix = "podman pull";
+
+    let ec = pmd::pull_ec(&image, Some(&ctx));
+
+    log_ec(ec, prefix);
+}
+
+pub(crate) fn parallax_migrate(
+    parallax_path: &str,
+    ctx: &PodmanCtx,
+    image: &str,
+) -> Result<(), Box<dyn Error>> {
+    let prefix = "parallax_migrate";
+
+    let ec = pmd::parallax_migrate_ec(&PathBuf::from(parallax_path), ctx, image)?;
+
+    log_ec(ec, prefix);
+
+    Ok(())
+}
+
+pub(crate) fn rmi(image: &str, ctx: &PodmanCtx) -> () {
+    let prefix = "podman rmi";
+
+    let ec = pmd::rmi_ec(&image, Some(&ctx));
+
+    log_ec(ec, prefix);
+}
+
+pub(crate) fn podman_run<I, S>(
+    edf: &raster::EDF,
+    p_ctx: &PodmanCtx,
+    c_ctx: &ContainerCtx,
+    cmd: I,
+) -> Result<(), Box<dyn Error>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    let prefix = "podman run";
+
+    let ec = pmd::run_from_edf_ec(&edf, Some(&p_ctx), &c_ctx, cmd);
+
+    log_ec(ec.clone(), prefix);
+
+    match ec.output.status.code() {
+        Some(rc) => {
+            if rc != 0 {
+                return plugin_err(format!("podman run exited with {rc}").as_str());
+            }
+        }
+        None => return plugin_err("podman run failed badly"),
+    };
+
+    Ok(())
+}
+
+pub(crate) fn log_ec(ec: ExecutedCommand, prefix: &str) {
+    let rc = match ec.output.status.code() {
+        Some(ok) => format!("{ok}"),
+        None => {
+            skybox_log_debug!("{prefix} exited by signal");
+            String::from("UNKNOWN")
+        }
+    };
+
+    let mut stdout = match String::from_utf8(ec.output.stdout) {
+        Ok(ok) => ok,
+        Err(_) => String::from(""),
+    };
+    if stdout.ends_with("\n") {
+        stdout.pop();
+    };
+
+    let mut stderr = match String::from_utf8(ec.output.stderr) {
+        Ok(ok) => ok,
+        Err(_) => String::from(""),
+    };
+    if stderr.ends_with("\n") {
+        stderr.pop();
+    };
+
+    skybox_log_debug!("CMD: {}", ec.command);
+    skybox_log_debug!("{prefix} exit code: {}", rc);
+
+    if stdout != "" {
+        skybox_log_debug!("{prefix} stdout: {}", stdout);
+    }
+
+    if stderr != "" {
+        skybox_log_debug!("{prefix} stderr: {}", stderr);
+    }
 }

@@ -9,17 +9,20 @@ use std::path::Path;
 use slurm_spank::{
     SpankError,
     SpankHandle,
-    spank_log_debug,
-    spank_log_error,
+    //spank_log_debug,
+    //spank_log_error,
     //spank_log_user,
 };
 
 use crate::{
     SpankSkyBox,
     //create_folder,
+    get_local_task_id,
     //is_local_task_0,
     plugin_err,
-    plugin_string
+    //plugin_string,
+    skybox_log_debug,
+    skybox_log_error,
 };
 
 pub(crate) fn container_join(
@@ -70,7 +73,6 @@ pub(crate) fn container_join(
         if ret < 0 {
             return plugin_err("failed to join mount namespace");
         }
-
     }
 
     Ok(())
@@ -84,8 +86,12 @@ pub(crate) fn container_wait_cwd(
     let cwd = format!("/proc/{pid}/cwd");
 
     while let Err(e) = File::open(&cwd) {
-        let msg = plugin_string(format!("couldn't open cwd: {e}, wait 1 sec and retry").as_str());
-        spank_log_debug!("{msg}");
+        //let msg = plugin_string(format!("couldn't open cwd: {e}, wait 1 sec and retry").as_str());
+        //spank_log_debug!("{msg}");
+        skybox_log_debug!(
+            "task {} - couldn't open cwd: {e}, wait 1 sec and retry",
+            get_local_task_id(ssb)
+        );
 
         let pause = std::time::Duration::new(1, 0);
         std::thread::sleep(pause);
@@ -105,8 +111,12 @@ pub(crate) fn container_set_workdir(
         new_workdir = format!("/proc/{pid}/cwd");
     }
 
-    let msg = plugin_string(format!("changing to {new_workdir}").as_str());
-    spank_log_debug!("{msg}");
+    //let msg = plugin_string(format!("changing to {new_workdir}").as_str());
+    //spank_log_debug!("{msg}");
+    skybox_log_debug!(
+        "task {} - changing workdir to {new_workdir}",
+        get_local_task_id(ssb)
+    );
 
     let new_cwd = Path::new(&new_workdir);
     Ok(set_current_dir(&new_cwd)?)
@@ -124,8 +134,9 @@ pub(crate) fn container_import_env(
             match spank.unsetenv(dvar) {
                 Ok(_) => {}
                 Err(e) => {
-                    let msg = plugin_string(format!("failed to unset {dvar}: {e}").as_str());
-                    spank_log_error!("{msg}");
+                    //let msg = plugin_string(format!("failed to unset {dvar}: {e}").as_str());
+                    //spank_log_error!("{msg}");
+                    skybox_log_error!("failed to unset {dvar}: {e}");
                     return Err(Box::new(e));
                 }
             }
@@ -139,8 +150,9 @@ pub(crate) fn container_import_env(
     let environ_file = match File::open(&environ) {
         Ok(f) => f,
         Err(e) => {
-            let msg = plugin_string(format!("couldn't open environ {environ_path}: {e}").as_str());
-            spank_log_error!("{msg}");
+            //let msg = plugin_string(format!("couldn't open environ {environ_path}: {e}").as_str());
+            //spank_log_error!("{msg}");
+            skybox_log_error!("couldn't open environ {environ_path}: {e}");
             return Err(Box::new(e));
         }
     };
@@ -156,9 +168,10 @@ pub(crate) fn container_import_env(
                 container_vars.insert(String::from(key), String::from(value));
             }
             None => {
-                let msg = plugin_string(format!("couldn't parse environ value {string}").as_str());
-                spank_log_error!("{msg}");
-                return Err(msg.into());
+                let msg = format!("couldn't parse environ value {string}");
+                //spank_log_error!("{msg}");
+                skybox_log_error!("{msg}");
+                return Err(format!("[{}] {}", crate::get_plugin_name(), msg).into());
             }
         }
     }
@@ -185,8 +198,9 @@ pub(crate) fn container_import_env(
             Ok(ok) => ok,
             Err(SpankError::EnvExists(_)) => (),
             Err(e) => {
-                let msg = plugin_string(format!("couldn't set env {key}={value}: {e}").as_str());
-                spank_log_error!("{msg}");
+                //let msg = plugin_string(format!("couldn't set env {key}={value}: {e}").as_str());
+                //spank_log_error!("{msg}");
+                skybox_log_error!("couldn't set env {key}={value}: {e}");
                 return Err(Box::new(e));
             }
         }
@@ -202,7 +216,7 @@ pub(crate) fn container_join_once(
 
     if !is_local_task_0(ssb, spank) {
         return container_join_wait(ssb, spank);
-    } 
+    }
 
     //Workaround: write pidfile internally
     let pid = ssb.run.clone().unwrap().pid;

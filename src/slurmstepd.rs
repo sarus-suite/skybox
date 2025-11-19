@@ -2,10 +2,7 @@ use nix::unistd::{Uid, setfsuid};
 use std::error::Error;
 //use std::sync::{Arc, Mutex};
 
-use slurm_spank::{
-    SpankHandle,
-    spank_log_verbose,
-};
+use slurm_spank::SpankHandle;
 
 use crate::args::*;
 use crate::config::*;
@@ -13,16 +10,9 @@ use crate::container::*;
 use crate::environment::*;
 use crate::podman::*;
 use crate::{
-    SpankSkyBox,
-    cleanup_fs_local,
-    cleanup_fs_shared_once,
-    is_skybox_enabled,
-    job_get_info,
-    remote_unset_env_vars,
-    run_set_info,
-    setup_folders,
-    setup_privileged_folders,
-    task_set_info,
+    SpankSkyBox, VERSION, cleanup_fs_local, cleanup_fs_shared_once, is_skybox_enabled,
+    job_get_info, remote_unset_env_vars, run_set_info, setup_folders, setup_privileged_folders,
+    skybox_log_info, task_set_info,
 };
 
 #[allow(unused_variables)]
@@ -30,7 +20,8 @@ pub(crate) fn slurmstepd_init(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    spank_log_verbose!("INIT");
+    //skybox_log_verbose!("INIT");
+    skybox_log_info!("version v{}", VERSION);
     let _ = register_plugin_args(spank)?;
     Ok(())
 }
@@ -40,7 +31,7 @@ pub(crate) fn slurmstepd_init_post_opt(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    spank_log_verbose!("INIT_POST_OPT");
+    //skybox_log_verbose!("INIT_POST_OPT");
     let _ = load_plugin_args(plugin, spank)?;
 
     let user_uid = spank.job_uid()?;
@@ -56,14 +47,7 @@ pub(crate) fn slurmstepd_init_post_opt(
 
     remote_unset_env_vars(plugin, spank)?;
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
-    */
+    //skybox_log_context(plugin);
 
     Ok(())
 }
@@ -76,30 +60,16 @@ pub(crate) fn slurmstepd_user_init(
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
     }
-    spank_log_verbose!("USER_INIT");
+    //skybox_log_verbose!("USER_INIT");
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
-    */
+    //skybox_log_context(plugin);
 
     render_user_config(plugin, spank)?;
     update_edf_defaults_via_config(plugin)?;
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
-    */
+    //skybox_log_context(plugin);
 
     Ok(())
 }
@@ -112,7 +82,7 @@ pub(crate) fn slurmstepd_task_init_privileged(
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
     }
-    spank_log_verbose!("TASK_INIT_PRIVILEGED");
+    //skybox_log_verbose!("TASK_INIT_PRIVILEGED");
     setup_privileged_folders(plugin, spank)?;
 
     Ok(())
@@ -126,7 +96,7 @@ pub(crate) fn slurmstepd_task_init(
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
     }
-    spank_log_verbose!("TASK_INIT");
+    //skybox_log_verbose!("TASK_INIT");
     let _ = task_set_info(plugin, spank)?;
 
     podman_pull_once(plugin, spank)?;
@@ -136,14 +106,7 @@ pub(crate) fn slurmstepd_task_init(
     container_import_env(plugin, spank)?;
     container_set_workdir(plugin, spank)?;
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
-    */
+    //skybox_log_context(plugin);
 
     Ok(())
 }
@@ -156,18 +119,11 @@ pub(crate) fn slurmstepd_task_exit(
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
     }
-    spank_log_verbose!("TASK_EXIT");
+    //skybox_log_verbose!("TASK_EXIT");
     let _ = task_set_info(plugin, spank)?;
     let _ = run_set_info(plugin, spank)?;
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
-    */
+    //skybox_log_context(plugin);
 
     podman_stop_once(plugin, spank)?;
 
@@ -183,20 +139,12 @@ pub(crate) fn slurmstepd_exit(
     if !is_skybox_enabled(plugin, spank) {
         return Ok(());
     }
-    spank_log_verbose!("EXIT");
+    //skybox_log_verbose!("EXIT");
 
-    /*
-    spank_log_verbose!("{}: computed context:", "skybox");
-    spank_log_verbose!(
-        "{}: {}",
-        "skybox",
-        serde_json::to_string_pretty(&plugin).unwrap_or(String::from("ERROR"))
-    );
+    //skybox_log_context(plugin);
 
-    */
     cleanup_fs_local(plugin, spank)?;
     cleanup_fs_shared_once(plugin, spank)?;
-
 
     Ok(())
 }

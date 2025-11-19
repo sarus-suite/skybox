@@ -3,11 +3,11 @@ use std::error::Error;
 //use std::collections::HashMap;
 //use std::process::Command;
 
-use slurm_spank::{SpankHandle, spank_log_error};
+use slurm_spank::SpankHandle;
 
 use raster::expand_vars_string;
 
-use crate::{SpankSkyBox, get_job_env, get_plugin_name, plugin_err};
+use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
 const CONFIG_FILE: &str = "/etc/sarus/skybox.conf";
 
@@ -222,8 +222,8 @@ pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> 
     match setup_config(&c, plugin) {
         Ok(_) => {}
         Err(e) => {
-            spank_log_error!("{} at {}", e, config_file_path);
-            spank_log_error!("[{}] plugin is disabled", get_plugin_name());
+            skybox_log_error!("{} at {}", e, config_file_path);
+            skybox_log_error!("plugin is disabled");
         }
     }
 
@@ -289,8 +289,8 @@ pub(crate) fn render_user_config(
     match setup_config(&user_config, plugin) {
         Ok(_) => {}
         Err(e) => {
-            spank_log_error!("{} when expanding variables", e);
-            spank_log_error!("[{}] plugin is disabled", get_plugin_name());
+            skybox_log_error!("{} when expanding variables", e);
+            skybox_log_error!("plugin is disabled");
             return plugin_err("cannot render user configuration");
         }
     }
