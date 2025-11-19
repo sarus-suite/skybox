@@ -14,7 +14,6 @@ use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 use crate::args::SkyBoxArgs;
 use crate::config::SkyBoxConfig;
 use crate::podman::podman_get_pid_from_file;
-use crate::sync::sync_cleanup_fs_local_dir_completed;
 //use crate::environment::SkyBoxEDF;
 use raster::EDF;
 
@@ -23,7 +22,7 @@ pub mod args;
 pub mod config;
 pub mod container;
 pub mod dispatch;
-pub mod environment;
+pub mod edf;
 pub mod podman;
 pub mod slurmd;
 pub mod slurmstepd;
@@ -307,81 +306,6 @@ pub(crate) fn cleanup_fs_local(
         }
     };
     Ok(())
-}
-
-pub(crate) fn cleanup_fs_shared_once(
-    ssb: &mut SpankSkyBox,
-    spank: &mut SpankHandle,
-) -> Result<(), Box<dyn Error>> {
-    if !is_node_0(ssb, spank) {
-        return Ok(());
-    }
-
-    let syncfile_path = match ssb.run.clone() {
-        Some(r) => r.syncfile_path,
-        None => {
-            return plugin_err("couldn't find syncfile_path");
-        }
-    };
-
-    skybox_log_debug!("delete {}", &syncfile_path);
-    match std::fs::remove_file(&syncfile_path) {
-        Ok(_) => (),
-        Err(e) => {
-            let msg = format!(
-                "couldn't cleanup syncfile_path \"{:#?}\", error {}",
-                &syncfile_path, e
-            );
-            return plugin_err(&msg);
-        }
-    }
-
-    Ok(())
-}
-
-pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.local_task_id == 0 {
-        return true;
-    }
-
-    return false;
-}
-
-pub(crate) fn is_global_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.global_task_id == 0 {
-        return true;
-    }
-
-    return false;
-}
-
-pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.nodeid == 0 {
-        return true;
-    }
-
-    return false;
 }
 
 pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String, String> {

@@ -1,18 +1,16 @@
 use nix::unistd::{Uid, setfsuid};
 use std::error::Error;
-//use std::sync::{Arc, Mutex};
 
 use slurm_spank::SpankHandle;
 
 use crate::args::*;
 use crate::config::*;
 use crate::container::*;
-use crate::environment::*;
-use crate::podman::*;
+use crate::edf::*;
+use crate::sync::*;
 use crate::{
-    SpankSkyBox, VERSION, cleanup_fs_local, cleanup_fs_shared_once, is_skybox_enabled,
-    job_get_info, remote_unset_env_vars, run_set_info, setup_folders, setup_privileged_folders,
-    skybox_log_info, task_set_info,
+    SpankSkyBox, VERSION, cleanup_fs_local, is_skybox_enabled, job_get_info, remote_unset_env_vars,
+    run_set_info, setup_folders, setup_privileged_folders, skybox_log_info, task_set_info,
 };
 
 #[allow(unused_variables)]
@@ -36,7 +34,7 @@ pub(crate) fn slurmstepd_init_post_opt(
 
     let user_uid = spank.job_uid()?;
     let old_uid = setfsuid(Uid::from(user_uid));
-    let _ = load_environment(plugin, spank)?;
+    let _ = load_edf(plugin, spank)?;
     let _ = setfsuid(Uid::from(old_uid));
 
     if !is_skybox_enabled(plugin, spank) {
@@ -99,8 +97,8 @@ pub(crate) fn slurmstepd_task_init(
     //skybox_log_verbose!("TASK_INIT");
     let _ = task_set_info(plugin, spank)?;
 
-    podman_pull_once(plugin, spank)?;
-    podman_start_once(plugin, spank)?;
+    sync_podman_pull(plugin, spank)?;
+    sync_podman_start(plugin, spank)?;
     container_join(plugin, spank)?;
     container_wait_cwd(plugin, spank)?;
     container_import_env(plugin, spank)?;
@@ -125,7 +123,7 @@ pub(crate) fn slurmstepd_task_exit(
 
     //skybox_log_context(plugin);
 
-    podman_stop_once(plugin, spank)?;
+    sync_podman_stop(plugin, spank)?;
 
     Ok(())
 }
@@ -144,7 +142,7 @@ pub(crate) fn slurmstepd_exit(
     //skybox_log_context(plugin);
 
     cleanup_fs_local(plugin, spank)?;
-    cleanup_fs_shared_once(plugin, spank)?;
+    sync_cleanup_fs_shared(plugin, spank)?;
 
     Ok(())
 }

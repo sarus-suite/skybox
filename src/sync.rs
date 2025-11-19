@@ -1,9 +1,232 @@
 use std::error::Error;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 use slurm_spank::SpankHandle;
 
-use crate::{SpankSkyBox, plugin_err};
+use crate::{
+    SpankSkyBox, get_local_task_id, plugin_err, plugin_string, podman::podman_pull,
+    podman::podman_start, podman::podman_stop, skybox_log_debug, skybox_log_error,
+};
+
+pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        }
+    };
+
+    if job.local_task_id == 0 {
+        return true;
+    }
+
+    return false;
+}
+
+pub(crate) fn is_global_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        }
+    };
+
+    if job.global_task_id == 0 {
+        return true;
+    }
+
+    return false;
+}
+
+pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    let job = match ssb.job.clone() {
+        Some(j) => j,
+        None => {
+            return false;
+        }
+    };
+
+    if job.nodeid == 0 {
+        return true;
+    }
+
+    return false;
+}
+
+pub(crate) fn sync_podman_pull(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if is_global_task_0(ssb, spank) {
+        match podman_pull(ssb, spank) {
+            Ok(_) => {
+                sync_podman_pull_done(ssb, spank, 0)?;
+            }
+            Err(e) => {
+                skybox_log_error!("{e}");
+                sync_podman_pull_done(ssb, spank, -1)?;
+            }
+        }
+    } else {
+        sync_podman_pull_wait(ssb, spank)?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn sync_podman_pull_wait(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    skybox_log_debug!(
+        "task {} - waiting on image importer",
+        get_local_task_id(ssb)
+    );
+
+    let run = match ssb.run.clone() {
+        Some(r) => r,
+        None => {
+            return plugin_err("cannot find run structure");
+        }
+    };
+
+    let file_path = run.syncfile_path.clone();
+    let pause = std::time::Duration::new(1, 0);
+    while std::fs::metadata(&file_path).is_err() {
+        std::thread::sleep(pause);
+    }
+
+    let f = File::open(file_path)?;
+    let mut reader = BufReader::new(f);
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+    let line = line.trim_end();
+    let result = line.parse::<i32>().unwrap();
+
+    let msg2 = plugin_string(format!("image importer exited with {}", result).as_str());
+    skybox_log_debug!(
+        "task {} - image importer exited with {}",
+        get_local_task_id(ssb),
+        result
+    );
+
+    if result != 0 {
+        return plugin_err(&msg2);
+    }
+
+    Ok(())
+}
+
+pub(crate) fn sync_podman_pull_done(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+    result: i32,
+) -> Result<(), Box<dyn Error>> {
+    let run = match ssb.run.clone() {
+        Some(r) => r,
+        None => {
+            return plugin_err("cannot find run structure");
+        }
+    };
+    skybox_log_debug!(
+        "task {} - image importer completed with {} - communicating",
+        get_local_task_id(ssb),
+        result
+    );
+
+    let mut file = File::create(run.syncfile_path)?;
+    write!(file, "{}\n", result)?;
+
+    if result != 0 {
+        let err_msg = format!("podman pull error RC:{}", result);
+        return plugin_err(&err_msg);
+    } else {
+        return Ok(());
+    }
+}
+
+pub(crate) fn sync_podman_start(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if is_local_task_0(ssb, spank) {
+        podman_start(ssb, spank)?;
+    }
+    sync_podman_start_wait(ssb, spank)?;
+
+    Ok(())
+}
+
+pub(crate) fn sync_podman_start_wait(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let run = match &ssb.run {
+        Some(o) => o,
+        None => {
+            return plugin_err("couldn't find run");
+        }
+    };
+
+    let pidfile = format!("{}/pidfile", run.podman_tmp_path);
+    let strpid;
+
+    loop {
+        let result = std::fs::read_to_string(&pidfile);
+        match result {
+            Ok(s) => {
+                strpid = s;
+                break;
+            }
+            Err(e) => {
+                skybox_log_debug!("couldn't read pidfile yet: {e}, wait 1 sec and retry");
+
+                let pause = std::time::Duration::new(1, 0);
+                std::thread::sleep(pause);
+            }
+        }
+    }
+
+    let pid: u64 = strpid.parse()?;
+
+    let mut newrun = ssb.run.clone().unwrap();
+    newrun.pid = pid;
+
+    ssb.run = Some(newrun);
+
+    return Ok(());
+}
+
+pub(crate) fn sync_podman_stop(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let run = ssb.run.clone().unwrap();
+    let job = ssb.job.clone().unwrap();
+    let task_id = job.local_task_id;
+    let task_count = job.local_task_count;
+
+    // create sync folder if doesn't exist
+    let completed_dir_path = format!("{}/completed", run.podman_tmp_path);
+    if !std::path::Path::new(&completed_dir_path).exists() {
+        std::fs::create_dir_all(&completed_dir_path)?;
+    }
+
+    // touch file in sync folder
+    let completed_file_path = format!("{}/task_{}.exit", completed_dir_path, task_id);
+    File::create(completed_file_path)?;
+
+    // Wait for all tasks to stop podman.
+    let readdir = std::fs::read_dir(&completed_dir_path)?;
+    if (readdir.count() as u32) == task_count {
+        sync_cleanup_fs_local_dir_completed(ssb, spank)?;
+        podman_stop(ssb, spank)?;
+    }
+
+    Ok(())
+}
 
 pub(crate) fn sync_cleanup_fs_local_dir_completed(
     ssb: &mut SpankSkyBox,
@@ -43,5 +266,35 @@ pub(crate) fn sync_cleanup_fs_local_dir_completed(
             }
         };
     }
+    Ok(())
+}
+
+pub(crate) fn sync_cleanup_fs_shared(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if !is_node_0(ssb, spank) {
+        return Ok(());
+    }
+
+    let syncfile_path = match ssb.run.clone() {
+        Some(r) => r.syncfile_path,
+        None => {
+            return plugin_err("couldn't find syncfile_path");
+        }
+    };
+
+    skybox_log_debug!("delete {}", &syncfile_path);
+    match std::fs::remove_file(&syncfile_path) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!(
+                "couldn't cleanup syncfile_path \"{:#?}\", error {}",
+                &syncfile_path, e
+            );
+            return plugin_err(&msg);
+        }
+    }
+
     Ok(())
 }

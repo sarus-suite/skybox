@@ -1,22 +1,10 @@
-//use serde::{Serialize, Deserialize};
-use slurm_spank::{
-    Context,
-    SpankHandle,
-    //spank_log_user
-};
-//use std::collections::HashMap;
+use slurm_spank::{Context, SpankHandle};
+
 use std::error::Error;
 
 use crate::{SpankSkyBox, get_job_env, spank_getenv};
 
-/*
-#[derive(Default, Serialize, Deserialize)]
-pub(crate) struct SkyBoxEDF {
-    pub(crate) edf: Option<EDF>,
-}
-*/
-
-pub(crate) fn load_environment(
+pub(crate) fn load_edf(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
