@@ -7,6 +7,7 @@ use crate::args::*;
 use crate::config::*;
 use crate::container::*;
 use crate::edf::*;
+use crate::skybox_log_context;
 use crate::sync::*;
 use crate::{
     SpankSkyBox, VERSION, cleanup_fs_local, is_skybox_enabled, job_get_info, remote_unset_env_vars,
@@ -66,8 +67,9 @@ pub(crate) fn slurmstepd_user_init(
     update_edf_defaults_via_config(plugin)?;
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
+    update_edf_for_sbatch(plugin, spank)?;
 
-    //skybox_log_context(plugin);
+    skybox_log_context(plugin);
 
     Ok(())
 }

@@ -2,7 +2,10 @@ use slurm_spank::{Context, SpankHandle};
 
 use std::error::Error;
 
-use crate::{SpankSkyBox, get_job_env, spank_getenv};
+use raster::mount::SarusMount;
+
+use crate::SLURM_BATCH_SCRIPT;
+use crate::{SpankSkyBox, get_job_env, skybox_log_debug, spank_getenv};
 
 pub(crate) fn load_edf(
     ssb: &mut SpankSkyBox,
@@ -114,5 +117,62 @@ pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<()
 
     ssb.edf = Some(edf);
 
+    Ok(())
+}
+
+pub(crate) fn update_edf_for_sbatch(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let job = match &ssb.job {
+        Some(j) => j,
+        None => {
+            skybox_log_debug!("cannot find job data at this stage");
+            return Ok(());
+        }
+    };
+
+    let stepid = job.stepid;
+    //skybox_log_debug!("STEP: {stepid} vs {SLURM_BATCH_SCRIPT}");
+    if stepid == SLURM_BATCH_SCRIPT {
+        let mut edf = match ssb.edf.clone() {
+            Some(e) => e,
+            None => {
+                return Ok(());
+            }
+        };
+
+        let argv = match spank.job_argv() {
+            Ok(a) => a,
+            Err(_) => {
+                skybox_log_debug!("cannot read job args");
+                return Ok(());
+            }
+        };
+
+        let sbatch_script = match argv.get(0) {
+            Some(s) => s,
+            None => {
+                skybox_log_debug!("cannot read job argv[0]");
+                return Ok(());
+            }
+        };
+
+        let flags = String::from("bind,ro,nosuid,nodev,private");
+        let mount_string = format!("{}:{}:{}", &sbatch_script, &sbatch_script, &flags);
+
+        let sm = match SarusMount::try_new(mount_string, &None) {
+            Ok(ok) => ok,
+            Err(_) => {
+                skybox_log_debug!("cannot create sbatch script mount defintion");
+                return Ok(());
+            }
+        };
+
+        skybox_log_debug!("NEW MOUNT: {}", sbatch_script);
+        edf.mounts.append(&mut vec![sm]);
+
+        ssb.edf = Some(edf);
+    }
     Ok(())
 }

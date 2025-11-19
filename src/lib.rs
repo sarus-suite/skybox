@@ -29,7 +29,7 @@ pub mod slurmstepd;
 pub mod srun;
 pub mod sync;
 
-//pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
+pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 SPANK_PLUGIN!(b"skybox", SLURM_VERSION_NUMBER, SpankSkyBox);
