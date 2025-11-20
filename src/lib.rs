@@ -200,7 +200,13 @@ pub(crate) fn run_set_info(
     let config = ssb.config.clone();
     let job = ssb.job.clone().unwrap();
     let edf = ssb.edf.clone().unwrap();
-    let name = format!("skybox_{}.{}", job.jobid, job.stepid);
+
+    let mut step_name = format!("{}", job.stepid);
+    if job.stepid == SLURM_BATCH_SCRIPT {
+        step_name = String::from("batch");
+    };
+
+    let name = format!("{}_{}.{}", get_plugin_name(), job.jobid, step_name);
     let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
     let syncfile_path = format!("{}/.{}_import.done", edf.parallax_imagestore, name);
 

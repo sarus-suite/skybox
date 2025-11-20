@@ -120,7 +120,7 @@ pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<()
     Ok(())
 }
 
-pub(crate) fn update_edf_for_sbatch(
+pub(crate) fn modify_edf_for_sbatch(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {

@@ -273,10 +273,16 @@ pub(crate) fn log_ec(ec: ExecutedCommand, prefix: &str) {
     skybox_log_debug!("{prefix} exit code: {}", rc);
 
     if stdout != "" {
-        skybox_log_debug!("{prefix} stdout: {}", stdout);
+        let lines = stdout.split("\n");
+        for line in lines {
+            skybox_log_debug!("{prefix} stdout: {}", line);
+        }
     }
 
     if stderr != "" {
-        skybox_log_debug!("{prefix} stderr: {}", stderr);
+        let lines = stderr.split("\n");
+        for line in lines {
+            skybox_log_debug!("{prefix} stderr: {}", line);
+        }
     }
 }
