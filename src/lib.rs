@@ -1,369 +1,389 @@
+use nix::libc::{gid_t, uid_t};
+use serde::Serialize;
+use std::collections::HashMap;
 use std::error::Error;
-use serde::{Serialize};
+use std::fs::Permissions;
+use std::os::unix::fs::{PermissionsExt, chown};
+//use std::os::raw::c_int;
+use std::path::Path;
+//use std::sync::{Arc, Mutex};
 
-use slurm_spank::{
-    spank_log_verbose,
-    spank_log_user,
-    Context,
-    Plugin,
-    SpankHandle,
-    SpankOption,
-    SLURM_VERSION_NUMBER,
-    SPANK_PLUGIN,
-};
+use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 
-// All spank plugins must define this macro for the
-// Slurm plugin loader.
+//use raster::mount::SarusMounts;
+use crate::args::SkyBoxArgs;
+use crate::config::SkyBoxConfig;
+use crate::podman::podman_get_pid_from_file;
+//use crate::environment::SkyBoxEDF;
+use raster::EDF;
+
+pub mod alloc;
+pub mod args;
+pub mod config;
+pub mod container;
+pub mod dispatch;
+pub mod edf;
+pub mod podman;
+pub mod slurmd;
+pub mod slurmstepd;
+pub mod srun;
+pub mod sync;
+
+pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 SPANK_PLUGIN!(b"skybox", SLURM_VERSION_NUMBER, SpankSkyBox);
 
 #[derive(Serialize, Default)]
 struct SpankSkyBox {
+    /*
     container_image: Option<String>,
-    container_mounts: Option<String>,
+    container_mounts: Option<SarusMounts>,
     container_workdir: Option<String>,
     container_name: Option<String>,
+    container_name_flags: Option<String>,
     container_save: Option<String>,
     container_mount_home: Option<bool>,
     container_remap_root: Option<bool>,
     container_entrypoint: Option<bool>,
     container_entrypoint_log: Option<bool>,
     container_writable: Option<bool>,
-    container_env: Option<String>,
+    container_env: Option<HashMap<String, String>>,
     environment: Option<String>,
     dump_environment: Option<bool>,
+    enabled: bool,
+    */
+    args: SkyBoxArgs,
+    config: SkyBoxConfig,
+    edf: Option<EDF>,
+    job: Option<Job>,
+    run: Option<Run>,
 }
 
-struct SpankArg {
+#[derive(Clone, Serialize, Default)]
+struct Job {
+    uid: uid_t,
+    gid: gid_t,
+    jobid: u32,
+    stepid: u32,
+    local_task_id: u32,
+    global_task_id: u32,
+    nodeid: u32,
+    local_task_count: u32,
+    total_task_count: u32,
+    cwd: String,
+}
+
+#[derive(Clone, Serialize, Default)]
+struct Run {
     name: String,
-    value: String,
-    usage: String,
-    has_arg: bool,
+    pid: u64,
+    podman_tmp_path: String,
+    syncfile_path: String,
 }
 
-type SpankArgs = Vec<SpankArg>;
-
-fn add_arg(mut v: SpankArgs, a: SpankArg) -> SpankArgs {
-    v.push(a);
-    v
+#[macro_export]
+macro_rules! skybox_log_debug {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Debug, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
 }
 
-fn register_plugin_args(spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-    let plug_name = "skybox";
+#[macro_export]
+macro_rules! skybox_log_error {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Error, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
 
-    let mut opts = vec!();
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-image"),
-        value: String::from("[USER@][REGISTRY#]IMAGE[:TAG]|PATH"),
-        usage: String::from("the image to use for the container filesystem. Can be either a docker image given as an enroot URI, or a path to a squashfs file on the remote host filesystem."),
-        has_arg: true,
-    });
-    
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-mounts"),
-        value: String::from("SRC:DST[:FLAGS][,SRC:DST...]"),
-        usage: String::from("bind mount[s] inside the container. Mount flags are separated with \"+\", e.g. \"ro+rprivate\""),
-        has_arg: true,
-    });
+#[macro_export]
+macro_rules! skybox_log_info {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Info, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-workdir"),
-        value: String::from("PATH"),
-        usage: String::from("working directory inside the container"),
-        has_arg: true,
-    });
+#[macro_export]
+macro_rules! skybox_log_verbose {
+    ($($arg:tt)*) => ({
+        slurm_spank::spank_log(slurm_spank::LogLevel::Verbose, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-name"),
-        value: String::from("NAME"),
-        usage: String::from("name to use for saving and loading the container on the host. Unnamed containers are removed after the slurm task is complete; named containers are not. If a container with this name already exists, the existing container is used and the import is skipped."),
-        has_arg: true,
-    });
-    
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-save"),
-        value: String::from("PATH"),
-        usage: String::from("Save the container state to a squashfs file on the remote host filesystem."),
-        has_arg: true,
-    });
-    
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-mount-home"),
-        value: String::from(""),
-        usage: String::from("bind mount the user's home directory. System-level enroot settings might cause this directory to be already-mounted."),
-        has_arg: false,
-    });
+pub(crate) fn get_plugin_name() -> String {
+    return String::from("skybox");
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("no-container-mount-home"),
-        value: String::from(""),
-        usage: String::from("do not bind mount the user's home directory"),
-        has_arg: false,
-    });
+pub(crate) fn plugin_string(s: &str) -> String {
+    return format!("[{}] {}", get_plugin_name(), s);
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-remap-root"),
-        value: String::from(""),
-        usage: String::from("ask to be remapped to root inside the container. Does not grant elevated system permissions, despite appearances."),
-        has_arg: false,
-    });
+pub(crate) fn plugin_err(s: &str) -> Result<(), Box<dyn Error>> {
+    return Err(plugin_string(s).into());
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("no-container-remap-root"),
-        value: String::from(""),
-        usage: String::from("do not remap to root inside the container"),
-        has_arg: false,
-    });
+pub(crate) fn get_local_task_id(ssb: &SpankSkyBox) -> u32 {
+    return ssb.job.clone().unwrap().local_task_id;
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-entrypoint"),
-        value: String::from(""),
-        usage: String::from("execute the entrypoint from the container image"),
-        has_arg: false,
-    });
+pub(crate) fn spank_getenv(spank: &mut SpankHandle, var: &str) -> String {
+    match spank.getenv(var) {
+        Ok(r) => match r {
+            Some(v) => v,
+            None => String::from(""),
+        },
+        Err(_) => String::from(""),
+    }
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("no-container-entrypoint"),
-        value: String::from(""),
-        usage: String::from("do not execute the entrypoint from the container image"),
-        has_arg: false,
-    });
+pub(crate) fn is_skybox_enabled(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
+    if !ssb.config.enabled {
+        return false;
+    }
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-entrypoint-log"),
-        value: String::from(""),
-        usage: String::from("print the output of the entrypoint script"),
-        has_arg: false,
-    });
-    
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-writable"),
-        value: String::from(""),
-        usage: String::from("make the container filesystem writable"),
-        has_arg: false,
+    if ssb.edf.is_none() || ssb.edf.clone().unwrap().image == "" {
+        return false;
+    }
+
+    true
+}
+
+pub(crate) fn job_get_info(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let cwd = spank_getenv(spank, "PWD");
+
+    if cwd == "" {
+        return plugin_err("couldn't get job cwd path");
+    }
+
+    ssb.job = Some(Job {
+        uid: spank.job_uid()?,
+        gid: spank.job_gid()?,
+        jobid: spank.job_id()?,
+        stepid: spank.job_stepid()?,
+        local_task_id: u32::MAX,
+        global_task_id: u32::MAX,
+        nodeid: spank.job_nodeid()?,
+        local_task_count: spank.job_local_task_count()?,
+        total_task_count: spank.job_total_task_count()?,
+        cwd: cwd,
     });
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-readonly"),
-        value: String::from(""),
-        usage: String::from("make the container filesystem read-only"),
-        has_arg: false,
-    });
+    Ok(())
+}
 
-    opts = add_arg(opts, SpankArg {
-        name: String::from("container-env"),
-        value: String::from("NAME[,NAME...]"),
-        usage: String::from("names of environment variables to override with the host environment and set at the entrypoint. By default, all exported host environment variables are set in the container after the entrypoint is run, but their existing values in the image take precedence; the variables specified with this flag are preserved from the host and set before the entrypoint runs"),
-        has_arg: true,
-    });
-
-    opts = add_arg(opts, SpankArg {
-        name: String::from("environment"),
-        value: String::from("PATH"),
-        usage: String::from("the path to the Environment Definition File to use."),
-        has_arg: true,
-    });
-
-    opts = add_arg(opts, SpankArg {
-        name: String::from("dump-environment"),
-        value: String::from(""),
-        usage: String::from("dumps the final values of the environment keeping into account base_environment and command line overrides."),
-        has_arg: false,
-    });
-
-    for opt in opts {
-        let so;
-        if opt.has_arg {
-            so = SpankOption::new(&opt.name)
-                        .takes_value(&opt.value)
-                        .usage(format!("[{}] {}", plug_name, &opt.usage).as_str());
-        } else {
-            so = SpankOption::new(&opt.name)
-                        .usage(format!("[{}] {}", plug_name, &opt.usage).as_str());
+pub(crate) fn task_set_info(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let taskid = spank.task_id()?;
+    let local_task_id = taskid as u32;
+    let global_task_id = spank.local_to_global_id(local_task_id)?;
+    let job = &mut ssb.job;
+    match job {
+        Some(j) => {
+            j.local_task_id = local_task_id;
+            j.global_task_id = global_task_id;
         }
-        spank.register_option(so)?;
-    }
-    Ok(())
-}
-
-fn set_arg_mount_home(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_mount_home {
-        Some(_) => return Err("container-mount-home argument specified more than once".into()),
         None => {
-            ssb.container_mount_home = Some(value);
-        },
+            return plugin_err("couldn't find job structure");
+        }
     }
     Ok(())
 }
+pub(crate) fn run_set_info(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let config = ssb.config.clone();
+    let job = ssb.job.clone().unwrap();
+    let edf = ssb.edf.clone().unwrap();
 
-fn set_arg_remap_root(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_remap_root {
-        Some(_) => return Err("container-remap-root argument specified more than once".into()),
-        None => {
-            ssb.container_remap_root = Some(value);
-        },
-    }
-    Ok(())
-}
+    let mut step_name = format!("{}", job.stepid);
+    if job.stepid == SLURM_BATCH_SCRIPT {
+        step_name = String::from("batch");
+    };
 
-fn set_arg_entrypoint(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_entrypoint {
-        Some(_) => return Err("container-entrypoint argument specified more than once".into()),
-        None => {
-            ssb.container_entrypoint = Some(value);
-        },
-    }
-    Ok(())
-}
+    let name = format!("{}_{}.{}", get_plugin_name(), job.jobid, step_name);
+    let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
+    let syncfile_path = format!("{}/.{}_import.done", edf.parallax_imagestore, name);
 
-fn set_arg_entrypoint_log(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_entrypoint_log {
-        Some(_) => return Err("container-entrypoint-log argument specified more than once".into()),
-        None => {
-            ssb.container_entrypoint_log = Some(value);
-        },
-    }
-    Ok(())
-}
+    let pid = match podman_get_pid_from_file(ssb) {
+        Ok(s) => s,
+        Err(_) => u64::MAX,
+    };
 
-fn set_arg_writable(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.container_writable {
-        Some(_) => return Err("container-writable argument specified more than once".into()),
-        None => {
-            ssb.container_writable = Some(value);
-        },
-    }
-    Ok(())
-}
-
-fn set_arg_dump_environment(ssb: &mut SpankSkyBox, value: bool) -> Result<(), Box<dyn Error>> {
-    match ssb.dump_environment {
-        Some(_) => return Err("dump-environment argument specified more than once".into()),
-        None => {
-            ssb.dump_environment = Some(value);
-        },
-    }
-    Ok(())
-}
-
-fn load_plugin_args(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-    if spank.is_option_set("container-image") {
-        ssb.container_image = spank
-            .get_option_value("container-image")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("container-mounts") {
-        ssb.container_mounts = spank
-            .get_option_value("container-mounts")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("container-workdir") {
-        ssb.container_workdir = spank
-            .get_option_value("container-workdir")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("container-name") {
-        ssb.container_name = spank
-            .get_option_value("container-name")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("container-save") {
-        ssb.container_save = spank
-            .get_option_value("container-save")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("container-mount-home") {
-        let _ = set_arg_mount_home(ssb, true);
-    }
-
-    if spank.is_option_set("no-container-mount-home") {
-        let _ = set_arg_mount_home(ssb, false);
-    }
-
-    if spank.is_option_set("container-remap-root") {
-        let _ = set_arg_remap_root(ssb, true);
-    }
-
-    if spank.is_option_set("no-container-remap-root") {
-        let _ = set_arg_remap_root(ssb, false);
-    }
-
-    if spank.is_option_set("container-entrypoint") {
-        let _ = set_arg_entrypoint(ssb, true);
-    }
-
-    if spank.is_option_set("no-container-entrypoint") {
-        let _ = set_arg_entrypoint(ssb, false);
-    }
-
-    if spank.is_option_set("container-entrypoint-log") {
-        let _ = set_arg_entrypoint_log(ssb, true);
-    }
-    
-    if spank.is_option_set("container-writable") {
-        let _ = set_arg_writable(ssb, true);
-    }
-
-    if spank.is_option_set("container-readonly") {
-        let _ = set_arg_writable(ssb, false);
-    }
-
-    if spank.is_option_set("container-env") {
-        ssb.container_env = spank
-            .get_option_value("container-env")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("environment") {
-        ssb.environment = spank
-            .get_option_value("environment")?
-            .map(|s| s.to_string());
-    }
-
-    if spank.is_option_set("dump-environment") {
-        let _ = set_arg_dump_environment(ssb, true);
-    }
+    ssb.run = Some(Run {
+        name: name,
+        pid: pid,
+        podman_tmp_path: podman_tmp_path,
+        syncfile_path: syncfile_path,
+    });
 
     Ok(())
 }
 
-unsafe impl Plugin for SpankSkyBox {
-    fn init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        
-        match spank.context()? {
-            Context::Local | Context::Remote => {
-                let _ = register_plugin_args(spank)?;
+pub(crate) fn setup_privileged_folders(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let job = ssb.job.clone().unwrap();
+    let dir_path = format!("/run/user/{}", job.uid);
+    if !Path::new(&dir_path).exists() {
+        std::fs::create_dir_all(&dir_path)?;
+        let dir_mode = 0o700;
+        let dir_perms = Permissions::from_mode(dir_mode);
+        std::fs::set_permissions(&dir_path, dir_perms)?;
+        let user = match users::get_user_by_uid(job.uid) {
+            Some(u) => u,
+            None => {
+                return plugin_err("couldn't find user");
             }
-            _ => {}
+        };
+        let gid = user.primary_group_id();
+        chown(dir_path, Some(job.uid), Some(gid))?;
+    }
+    Ok(())
+}
+
+pub(crate) fn setup_folders(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let base_path = match ssb.run.clone() {
+        Some(r) => r.podman_tmp_path,
+        None => {
+            return plugin_err("couldn't find podman_tmp_path");
+        }
+    };
+
+    let dir_mode = 0o700;
+    let mut dir_path;
+
+    dir_path = format!("{}", base_path);
+    create_folder(dir_path, dir_mode)?;
+
+    dir_path = format!("{}/graphroot", base_path);
+    create_folder(dir_path, dir_mode)?;
+
+    dir_path = format!("{}/runroot", base_path);
+    create_folder(dir_path, dir_mode)?;
+
+    Ok(())
+}
+
+pub(crate) fn create_folder(path: String, mode: u32) -> Result<(), Box<dyn Error>> {
+    if !Path::new(&path).exists() {
+        std::fs::create_dir_all(&path)?;
+        let perms = Permissions::from_mode(mode);
+        std::fs::set_permissions(&path, perms)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn cleanup_fs_local(
+    ssb: &mut SpankSkyBox,
+    _spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let base_path = match ssb.run.clone() {
+        Some(r) => r.podman_tmp_path,
+        None => {
+            return plugin_err("couldn't find podman_tmp_path");
+        }
+    };
+
+    while !Path::new(&base_path).exists() {
+        //let msg = plugin_string(format!("couldn't find {}, wait 1 sec and retry", &base_path).as_str());
+        //spank_log_debug!("{msg}");
+        skybox_log_debug!("couldn't find {}, wait 1 sec and retry", &base_path);
+
+        let pause = std::time::Duration::new(1, 0);
+        std::thread::sleep(pause);
+    }
+
+    skybox_log_debug!("delete {}", &base_path);
+    match std::fs::remove_dir_all(&base_path) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!("couldn't cleanup \"{:#?}\", error {}", &base_path, e);
+            return plugin_err(&msg);
+        }
+    };
+    Ok(())
+}
+
+pub(crate) fn get_job_env(spank: &mut SpankHandle) -> HashMap<String, String> {
+    let mut user_env = HashMap::new();
+
+    let jobenv = match spank.job_env() {
+        Ok(j) => j,
+        Err(_) => {
+            return user_env;
+        }
+    };
+
+    for e in jobenv.iter() {
+        let mut split = e.split("=");
+
+        let size = split.clone().count();
+        if size < 2 || size > 3 {
+            continue;
         }
 
-        Ok(())
-    }
-    fn init_post_opt(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        let _ = load_plugin_args(self, spank)?;
-
-        spank_log_verbose!("{}: computed args:", "skybox");
-        spank_log_verbose!(
-            "{}: {}",
-            "skybox",
-            serde_json::to_string_pretty(&self).unwrap_or(String::from("ERROR"))
-        );
-
-        Ok(())
+        let k = split.next().unwrap();
+        let v = split.next().unwrap();
+        user_env.insert(String::from(k), String::from(v));
     }
 
-    fn user_init(&mut self, _spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        spank_log_user!("computed args:");
-        spank_log_user!(
-            "{}",
-            serde_json::to_string_pretty(&self).unwrap_or(String::from("ERROR"))
-        );
+    user_env
+}
 
-        Ok(())
+pub(crate) fn remote_unset_env_vars(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let edf_env = ssb.edf.clone().unwrap().env;
+    let mut unset_keys = vec![];
+
+    for (key, value) in edf_env.iter() {
+        if value == "" {
+            unset_keys.push(key);
+
+            match spank.getenv(key) {
+                Ok(opt) => match opt {
+                    Some(_) => (),
+                    None => continue,
+                },
+                Err(e) => {
+                    //let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    //spank_log_error!("{msg}");
+                    skybox_log_error!("Cannot find env variable \"{key}\" to unset: {e}");
+                    return Err(Box::new(e));
+                }
+            }
+
+            match spank.unsetenv(key) {
+                Ok(_) => {}
+                Err(e) => {
+                    //let msg = plugin_string(format!("failed to unset {key}: {e}").as_str());
+                    //spank_log_error!("{msg}");
+                    skybox_log_error!("failed to unset {key}: {e}");
+                    return Err(Box::new(e));
+                }
+            }
+        }
     }
 
+    Ok(())
+}
+
+#[allow(dead_code)]
+pub(crate) fn skybox_log_context(ssb: &SpankSkyBox) -> () {
+    skybox_log_verbose!("computed context:");
+    skybox_log_verbose!(
+        "{}",
+        serde_json::to_string_pretty(&ssb).unwrap_or(String::from("ERROR"))
+    );
 }
