@@ -24,6 +24,7 @@ jobs:
           BUILD_OS: ${{ matrix.build_os }}
           SLURM_VERSION: ${{ matrix.slurm_version }}
         run: |
+          cd .github/release
           ./build.sh
           ./build_rpm.sh
 
