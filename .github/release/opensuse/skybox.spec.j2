@@ -1,0 +1,24 @@
+Name:     {{ product }}
+Version:  {{ version }}
+Release:  {{ release }}
+Summary:  Slurm spank plugin written in rust for sarus-suite
+
+License:  BSD
+URL:      https://github.com/sarus-suite/skybox
+
+%description
+Slurm spank plugin written in rust for sarus-suite
+
+%prep 
+
+%build
+
+%install
+mkdir -p %{buildroot}{{ libdir }}
+cp /tmp/{{ libname }} %{buildroot}{{ libdir }}/{{ libname }}
+
+%clean
+
+%files
+%dir {{ libdir }}
+{{ libdir }}/{{ libname }}

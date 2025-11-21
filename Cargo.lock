@@ -1256,7 +1256,7 @@ checksum = "726c1f160d565e9cef6ecaf0305c86fb254a9c6db6cb29379680b0213aa3a7e1"
 
 [[package]]
 name = "skybox"
-version = "0.1.0"
+version = "0.0.0-80358d6"
 dependencies = [
  "eyre",
  "libc",
