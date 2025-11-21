@@ -24,9 +24,8 @@ jobs:
           BUILD_OS: ${{ matrix.build_os }}
           SLURM_VERSION: ${{ matrix.slurm_version }}
         run: |
-          cd .github/release
-          ./build.sh
-          ./build_rpm.sh
+          .github/release/build.sh
+          .github/release/build_rpm.sh
 
       - name: Release
         uses: ncipollo/release-action@v1
@@ -34,7 +33,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          artifacts: ".github/release/dist/RPMS/*.rpm"
+          artifacts: ".github/release/dist/RPMS/${{ matrix.arch }}/*.rpm"
           allowUpdates: true
           replacesArtifacts: false
           draft: false
