@@ -10,11 +10,10 @@ jobs:
     if: github.actor == 'matteo-chesi'
     strategy:
       matrix:
+        slurm_version: [24.05.3-1, 25.05.4-1]
+        build_os: [opensuse-15.5, opensuse-15.6]
         include:
           - arch: x86_64
-            build_os: opensuse-15.5
-          - arch: x86_64
-            build_os: opensuse-15.6
     runs-on: chesim-zinal-login
     steps:
       - uses: actions/checkout@v4
