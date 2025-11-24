@@ -255,6 +255,7 @@ pub(crate) fn sync_cleanup_fs_local_dir_completed(
             }
         };
     }
+    /*
     if !Path::new(&base_path).exists() {
         ()
     } else {
@@ -266,6 +267,7 @@ pub(crate) fn sync_cleanup_fs_local_dir_completed(
             }
         };
     }
+    */
     Ok(())
 }
 
