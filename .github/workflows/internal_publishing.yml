@@ -24,4 +24,4 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          .github/release/publish.sh
+          .github/release/publish.sh ${TAG}
