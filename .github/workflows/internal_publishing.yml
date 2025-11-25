@@ -1,7 +1,7 @@
 name: internal_publishing
 on:
   push:
-  branches: [ 'VCUE\-1173' ]
+  branches: "[VCUE-1173]"
   workflow_dispatch:
 #on:
 #  workflow_dispatch:
