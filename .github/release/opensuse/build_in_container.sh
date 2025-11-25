@@ -7,7 +7,7 @@ rm -rf ${DIST_DIR}
 
 if [ -z "${VERSION}" ]
 then
-  VERSION=$(git describe --always --tags | tr '-' '_')
+  VERSION=$(git describe --always --tags | tr '-' '_' | sed 's/_.*_/-/')
   if ! ( echo $VERSION | grep -Eq "^v[0-9]+\.[0-9]+\.[0-9]+" )
   then	 
     RELEASE_VERSION="0.0.0-${VERSION}"

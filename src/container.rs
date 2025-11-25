@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 //use std::io::Write;
 use std::path::Path;
+use cfg_if;
 
 use slurm_spank::{
     SpankError,
@@ -25,6 +26,15 @@ use crate::{
     skybox_log_error,
 };
 
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "aarch64")] {
+        pub type PtrT = u8;
+    } else {
+        pub type PtrT = i8;
+    }
+}
+
+
 pub(crate) fn container_join(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
@@ -37,7 +47,7 @@ pub(crate) fn container_join(
         // User namespace
         let userns_path = format!("/proc/{pid}/ns/user");
         let userns_path_c = userns_path.clone() + "\0";
-        let userns_path_ptr: *const i8 = userns_path_c.as_ptr() as *const i8;
+        let userns_path_ptr: *const PtrT = userns_path_c.as_ptr() as *const PtrT;
 
         let userns_fd = libc::open(userns_path_ptr, libc::O_RDONLY | libc::O_CLOEXEC);
         if userns_fd < 0 {
@@ -50,7 +60,7 @@ pub(crate) fn container_join(
         // Mount namespace
         let mntns_path = format!("/proc/{pid}/ns/mnt");
         let mntns_path_c = mntns_path.clone() + "\0";
-        let mntns_path_ptr: *const i8 = mntns_path_c.as_ptr() as *const i8;
+        let mntns_path_ptr: *const PtrT = mntns_path_c.as_ptr() as *const PtrT;
 
         let mntns_fd = libc::open(mntns_path_ptr, libc::O_RDONLY | libc::O_CLOEXEC);
         if mntns_fd < 0 {
