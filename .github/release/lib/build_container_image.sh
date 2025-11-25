@@ -15,7 +15,11 @@ function add_containerfile_excerpts() {
   do
     cat ${file}
   done
-
+  ARCH=$(uname -m)
+  for file in $(ls ${BASE_DIR}/.github/release/${BUILD_OS_NAME}/*.Containerfile.${ARCH} 2>/dev/null)
+  do
+    cat ${file}
+  done
 }
 
 function build_container_image_opensuse() {
