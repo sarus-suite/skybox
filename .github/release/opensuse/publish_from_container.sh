@@ -13,9 +13,10 @@ env
 echo "OS"
 cat /etc/os-release | grep PRETTY
 
-echo "GATHER SSH KNOWN HOSTS"
+echo "GATHER SSH KNOWN HOSTS for git.cscs.ch"
 mkdir -p ~/.ssh
 ssh-keyscan git.cscs.ch >> ~/.ssh/known_hosts
+ssh-keyscan $(host git.cscs.ch | tail -n 1 | awk '{print $NF}') >> ~/.ssh/known_hosts
 echo "GIT CLONE"
 git clone git@git.cscs.ch:chesim/internal-skybox.git
 cd internal-skybox
