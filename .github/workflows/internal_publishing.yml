@@ -9,8 +9,9 @@ on:
 jobs:
   publish:
     name: internal publishing
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    if: github.actor == 'matteo-chesi'
+    if: |
+      ${{ github.event.workflow_run.conclusion == 'success' }} &&
+      ( github.actor == 'matteo-chesi' )
     runs-on: chesim-zinal-login
     steps:
       - uses: actions/checkout@v4
