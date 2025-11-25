@@ -5,8 +5,8 @@ cd "$(dirname $0)/../../../"
 DIST_DIR=".github/release/dist/"
 
 cd /tmp/
-curl -sOL https://gitlab.com/gitlab-org/cli/-/releases/v1.78.2/downloads/glab_1.78.2_linux_amd64.rpm
-zypper install --allow-unsigned-rpm -y bind-utils openssh ./glab_1.78.2_linux_amd64.rpm
+#curl -sOL https://gitlab.com/gitlab-org/cli/-/releases/v1.78.2/downloads/glab_1.78.2_linux_amd64.rpm
+#zypper install --allow-unsigned-rpm -y bind-utils openssh ./glab_1.78.2_linux_amd64.rpm
 
 echo "ENVIRONMENT:"
 env
