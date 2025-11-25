@@ -6,11 +6,11 @@ name: internal_publishing
 #    types:
 #      - completed
 
+#     ${{ github.event.workflow_run.conclusion == 'success' }} &&
 jobs:
   publish:
     name: "internal publishing"
     if: |
-#     ${{ github.event.workflow_run.conclusion == 'success' }} &&
       ( github.actor == 'matteo-chesi' )
     runs-on: chesim-zinal-login
     steps:
