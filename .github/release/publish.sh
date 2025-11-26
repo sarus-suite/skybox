@@ -1,6 +1,5 @@
 #!/bin/bash
 
-VERSION_TAG="$1"
 THIS_DIR=$(readlink -f $(dirname $0))
 BASE_DIR=$(readlink -f "${THIS_DIR}/../../")
 DIST_DIR="${THIS_DIR}/dist"
@@ -19,4 +18,4 @@ podman run --rm -ti \
     -v ~/.config/glab-cli:/root/.config/glab-cli \
     -v ${BASE_DIR}:/mnt \
     ${BUILD_IMAGE_NAME} \
-    /mnt/.github/release/${BUILD_OS_NAME}/publish_from_container.sh ${VERSION_TAG}
+    /mnt/.github/release/${BUILD_OS_NAME}/publish_from_container.sh

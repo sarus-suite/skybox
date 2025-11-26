@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 
-VERSION_TAG="$1"
 cd "$(dirname $0)/../../../"
 DIST_DIR=".github/release/dist/"
 
@@ -10,8 +9,12 @@ cd /tmp/
 
 echo "ENVIRONMENT:"
 env
-echo "OS"
+echo "OS:"
 cat /etc/os-release | grep PRETTY
+
+VERSION_TAG=$(ls ${DIST_DIR}/RPMS/$(uname -m) | grep -E .rpm$ 2>/dev/null | tail -n 1| awk -F\- '{print $3}')
+echo "TAG:"
+echo $VERSION_TAG
 
 echo "GATHER SSH KNOWN HOSTS for git.cscs.ch"
 mkdir -p ~/.ssh
