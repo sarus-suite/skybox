@@ -12,6 +12,7 @@ env
 echo "OS:"
 cat /etc/os-release | grep PRETTY
 
+cd /mnt
 VERSION_TAG=$(git describe --tags)
 echo "TAG:"
 echo $VERSION_TAG
@@ -20,6 +21,7 @@ then
     echo "ERROR: cannot gather RELEASE TAG"
     exit 1
 fi
+cd /tmp
 
 echo "GATHER SSH KNOWN HOSTS for git.cscs.ch"
 mkdir -p ~/.ssh
