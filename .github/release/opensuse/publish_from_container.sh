@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 cd "$(dirname $0)/../../../"
-DIST_DIR=".github/release/dist/"
+DIST_DIR="/mnt/.github/release/dist/"
 
 cd /tmp/
 #curl -sOL https://gitlab.com/gitlab-org/cli/-/releases/v1.78.2/downloads/glab_1.78.2_linux_amd64.rpm
@@ -12,9 +12,14 @@ env
 echo "OS:"
 cat /etc/os-release | grep PRETTY
 
-VERSION_TAG=$(ls ${DIST_DIR}/RPMS/$(uname -m) | grep -E .rpm$ 2>/dev/null | tail -n 1| awk -F\- '{print $3}')
+VERSION_TAG=$(git describe --tags)
 echo "TAG:"
 echo $VERSION_TAG
+if [ -z "${VERSION_TAG}" ]
+then
+    echo "ERROR: cannot gather RELEASE TAG"
+    exit 1
+fi
 
 echo "GATHER SSH KNOWN HOSTS for git.cscs.ch"
 mkdir -p ~/.ssh
