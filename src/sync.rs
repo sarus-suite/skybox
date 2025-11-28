@@ -416,3 +416,30 @@ fn sync_load_dynconf_wait(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) {
 
     apply_dynconf(ssb, dynconf);
 }
+
+pub(crate) fn sync_cleanup_dynconf(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let filepath = get_dynconf_filepath(ssb, spank);
+    skybox_log_debug!("delete {}", &filepath);
+
+    match std::fs::remove_file(&filepath) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!("couldn't cleanup dynconf \"{:#?}\", error {}", &filepath, e);
+            return plugin_err(&msg);
+        }
+    }
+
+    //remove dir if not empty
+    let dirpath = match Path::new(&filepath).parent() {
+        Some(s) => s,
+        None => {
+            return Ok(());
+        }
+    };
+    let _ = std::fs::remove_dir(dirpath);
+
+    Ok(())
+}

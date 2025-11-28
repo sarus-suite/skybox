@@ -145,6 +145,7 @@ pub(crate) fn slurmstepd_exit(
 
     cleanup_fs_local(plugin, spank)?;
     sync_cleanup_fs_shared(plugin, spank)?;
+    sync_cleanup_dynconf(plugin, spank)?;
 
     Ok(())
 }
