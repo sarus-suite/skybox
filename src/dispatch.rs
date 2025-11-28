@@ -5,6 +5,7 @@ use slurm_spank::{Context, Plugin, SpankHandle};
 use crate::SpankSkyBox;
 use crate::alloc::*;
 use crate::config::*;
+use crate::dynconf::*;
 use crate::slurmd::*;
 use crate::slurmstepd::*;
 use crate::srun::*;
@@ -12,6 +13,7 @@ use crate::srun::*;
 unsafe impl Plugin for SpankSkyBox {
     fn init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
         let _ = load_config(self, spank);
+        load_dynconf(self, spank);
 
         if !self.config.enabled {
             return Ok(());

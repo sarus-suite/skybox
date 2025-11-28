@@ -14,6 +14,8 @@ const CONFIG_FILE: &str = "/etc/sarus/skybox.conf";
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct RawConfig {
     enabled: Option<bool>,
+    dynconf_url: Option<String>,
+    dynconf_path: Option<String>,
     parallax_imagestore: Option<String>,
     parallax_mount_program: Option<String>,
     parallax_path: Option<String>,
@@ -26,6 +28,10 @@ pub(crate) struct RawConfig {
 pub(crate) struct SkyBoxConfig {
     #[serde(default = "get_default_enabled")]
     pub(crate) enabled: bool,
+    #[serde(default = "get_default_dynconf_url")]
+    pub(crate) dynconf_url: String,
+    #[serde(default = "get_default_dynconf_path")]
+    pub(crate) dynconf_path: String,
     #[serde(default = "get_default_parallax_imagestore")]
     pub(crate) parallax_imagestore: String,
     #[serde(default = "get_default_parallax_mount_program")]
@@ -42,6 +48,14 @@ pub(crate) struct SkyBoxConfig {
 
 fn get_default_enabled() -> bool {
     return false;
+}
+
+fn get_default_dynconf_url() -> String {
+    return String::from("");
+}
+
+fn get_default_dynconf_path() -> String {
+    return String::from("");
 }
 
 fn get_default_parallax_imagestore() -> String {
@@ -74,6 +88,14 @@ impl From<RawConfig> for SkyBoxConfig {
             enabled: match r.enabled {
                 Some(s) => s,
                 None => get_default_enabled(),
+            },
+            dynconf_url: match r.dynconf_url {
+                Some(s) => s,
+                None => get_default_dynconf_url(),
+            },
+            dynconf_path: match r.dynconf_path {
+                Some(s) => s,
+                None => get_default_dynconf_path(),
             },
             parallax_imagestore: match r.parallax_imagestore {
                 Some(s) => s,
@@ -108,6 +130,8 @@ fn load_raw_config(filepath: String) -> RawConfig {
 
     let empty = RawConfig {
         enabled: None,
+        dynconf_url: None,
+        dynconf_path: None,
         parallax_imagestore: None,
         parallax_mount_program: None,
         parallax_path: None,
@@ -278,6 +302,8 @@ pub(crate) fn render_user_config(
 
     let user_config = SkyBoxConfig {
         enabled: config.enabled,
+        dynconf_url: config.dynconf_url,
+        dynconf_path: expand_vars_string(config.dynconf_path, ue)?,
         parallax_imagestore: expand_vars_string(config.parallax_imagestore, ue)?,
         parallax_mount_program: expand_vars_string(config.parallax_mount_program, ue)?,
         parallax_path: expand_vars_string(config.parallax_path, ue)?,
