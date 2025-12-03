@@ -63,7 +63,7 @@ pub(crate) fn slurmstepd_user_init(
 
     //skybox_log_context(plugin);
 
-    render_user_config(plugin, spank)?;
+    render_user_job_config(plugin, spank)?;
     update_edf_defaults_via_config(plugin)?;
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;

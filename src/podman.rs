@@ -228,7 +228,7 @@ where
 {
     let prefix = "podman run";
 
-    let ec = pmd::run_from_edf_ec(&edf, Some(&p_ctx), &c_ctx, cmd);
+    let ec = pmd::run_from_edf_ec(edf, Some(&p_ctx), &c_ctx, cmd);
 
     log_ec(ec.clone(), prefix);
 

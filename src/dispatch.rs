@@ -13,7 +13,7 @@ unsafe impl Plugin for SpankSkyBox {
     fn init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
         let _ = load_config(self, spank);
 
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -37,7 +37,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn init_post_opt(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -58,7 +58,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn user_init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -66,7 +66,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -74,7 +74,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -98,7 +98,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn slurmd_exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -106,7 +106,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -114,7 +114,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_init_privileged(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
