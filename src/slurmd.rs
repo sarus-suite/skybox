@@ -2,15 +2,38 @@ use std::error::Error;
 
 use slurm_spank::SpankHandle;
 
-use crate::{SpankSkyBox, VERSION, skybox_log_info};
+use crate::config::resolve_config_path;
+use crate::{SpankSkyBox, VERSION, plugin_err, skybox_log_debug, skybox_log_info};
+
+fn slurmd_load_config(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let config_path = resolve_config_path(spank);
+
+    // do not fail on variable expansion -> &Some(false)
+    plugin.config = raster::load_config_path(config_path, &Some(false), &None)?;
+
+    if !plugin.config.skybox_enabled {
+        return plugin_err("plugin is disabled");
+    }
+
+    Ok(())
+}
 
 #[allow(unused_variables)]
 pub(crate) fn slurmd_init(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    //let msg = plugin_string(format!("version v{}", VERSION).as_str());
-    //spank_log_info!("{msg}");
+    match slurmd_load_config(plugin, spank) {
+        Ok(_) => (),
+        Err(e) => {
+            skybox_log_debug!("{e}");
+            return Ok(());
+        }
+    }
+
     skybox_log_info!("version v{}", VERSION);
     Ok(())
 }

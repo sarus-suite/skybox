@@ -15,7 +15,7 @@ use crate::args::SkyBoxArgs;
 //use crate::config::SkyBoxConfig;
 use crate::podman::podman_get_pid_from_file;
 //use crate::environment::SkyBoxEDF;
-use raster::{EDF, Config};
+use raster::{Config, EDF};
 
 pub mod alloc;
 pub mod args;

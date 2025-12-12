@@ -5,15 +5,24 @@ use std::path::Path;
 
 use slurm_spank::{SpankHandle, spank_log_user};
 
-use crate::SpankSkyBox;
 use crate::args::*;
+use crate::config::*;
 use crate::edf::*;
+use crate::{SpankSkyBox, plugin_err, skybox_log_error};
 
 #[allow(unused_variables)]
 pub(crate) fn alloc_init(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
+    match alloc_load_config(plugin, spank) {
+        Ok(_) => (),
+        Err(e) => {
+            //do not print anything if configuration is fine, but plugin is disabled.
+            return Ok(());
+        }
+    }
+
     register_plugin_args(spank)?;
     Ok(())
 }
@@ -70,4 +79,52 @@ pub(crate) fn sbatch_warn_msg(plugin: &mut SpankSkyBox, _spank: &mut SpankHandle
     );
 
     spank_log_user!("{warnmsg}");
+}
+
+fn alloc_load_config(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    //Just load plain configuration to understand if plugin is enabled.
+    match plugin_enabled_in_config(plugin, spank) {
+        Ok(bool) => {
+            if !bool {
+                return plugin_err("plugin is disabled");
+            }
+        }
+        Err(e) => {
+            skybox_log_error!("{}", e);
+            skybox_log_error!("Error on configuration loading");
+            skybox_log_error!("plugin is disabled");
+            return plugin_err("plugin is disabled");
+        }
+    }
+
+    let config_path = resolve_config_path(spank);
+
+    // force variable expansion -> &Some(true)
+    let config = match raster::load_config_path(config_path, &Some(true), &None) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            skybox_log_error!("{}", e);
+            skybox_log_error!("Error on configuration loading");
+            skybox_log_error!("plugin is disabled");
+            return plugin_err("plugin is disabled");
+        }
+    };
+
+    // Set Config
+    match setup_config(&config, plugin) {
+        Ok(_) => {}
+        Err(e) => {
+            skybox_log_error!("{}", e);
+            skybox_log_error!("plugin is disabled");
+        }
+    }
+
+    if !plugin.config.skybox_enabled {
+        return plugin_err("plugin is disabled");
+    }
+
+    Ok(())
 }

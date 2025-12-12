@@ -7,7 +7,7 @@ use raster::Config;
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
-fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
+pub(crate) fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
     let plugin_argv = spank.plugin_argv();
 
     let mut config_path: Option<PathBuf> = None;
@@ -33,11 +33,26 @@ fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
     config_path
 }
 
-pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> Config {
-
+pub(crate) fn plugin_enabled_in_config(
+    _plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<bool, Box<dyn Error>> {
     let config_path = resolve_config_path(spank);
 
-    let config = raster::load_config_path(config_path, &None);
+    // Do not expand variables
+    let config = raster::load_config_path(config_path, &None, &None)?;
+
+    return Ok(config.skybox_enabled);
+}
+
+/*
+pub(crate) fn load_config(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<Config, Box<dyn Error>> {
+    let config_path = resolve_config_path(spank);
+
+    let config = raster::load_config_path(config_path, &Some(false), &None)?;
 
     // Set Config
     match setup_config(&config, plugin) {
@@ -48,8 +63,9 @@ pub(crate) fn load_config(plugin: &mut SpankSkyBox, spank: &mut SpankHandle) -> 
         }
     }
 
-    config
+    Ok(config)
 }
+*/
 
 pub(crate) fn setup_config(
     config: &Config,
@@ -94,10 +110,21 @@ pub(crate) fn render_user_job_config(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-
     let config_path = resolve_config_path(spank);
     let je = &Some(get_job_env(spank));
-    let job_config = raster::load_config_path(config_path, &je);
+    //let job_config = raster::load_config_path(config_path, &Some(true), &je)?;
+
+    // force variable expansion -> &Some(true)
+    let job_config = match raster::load_config_path(config_path, &Some(true), &je) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            plugin.config.skybox_enabled = false;
+            skybox_log_error!("{}", e);
+            skybox_log_error!("Error on configuration loading");
+            skybox_log_error!("plugin is disabled");
+            return plugin_err("plugin is disabled");
+        }
+    };
 
     match setup_config(&job_config, plugin) {
         Ok(_) => {}

@@ -10,8 +10,9 @@ use crate::edf::*;
 //use crate::skybox_log_context;
 use crate::sync::*;
 use crate::{
-    SpankSkyBox, VERSION, cleanup_fs_local, is_skybox_enabled, job_get_info, remote_unset_env_vars,
-    run_set_info, setup_folders, setup_privileged_folders, skybox_log_info, task_set_info,
+    SpankSkyBox, VERSION, cleanup_fs_local, is_skybox_enabled, job_get_info, plugin_err,
+    remote_unset_env_vars, run_set_info, setup_folders, setup_privileged_folders, skybox_log_error,
+    skybox_log_info, task_set_info,
 };
 
 #[allow(unused_variables)]
@@ -19,7 +20,14 @@ pub(crate) fn slurmstepd_init(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    //skybox_log_verbose!("INIT");
+    match slurmstepd_load_config(plugin, spank) {
+        Ok(_) => (),
+        Err(e) => {
+            //do not print anything if configuration is fine, but plugin is disabled.
+            return Ok(());
+        }
+    }
+
     skybox_log_info!("version v{}", VERSION);
     let _ = register_plugin_args(spank)?;
     Ok(())
@@ -63,7 +71,14 @@ pub(crate) fn slurmstepd_user_init(
 
     //skybox_log_context(plugin);
 
-    render_user_job_config(plugin, spank)?;
+    match render_user_job_config(plugin, spank) {
+        Ok(_) => (),
+        Err(e) => {
+            //do not print anything if configuration is fine, but plugin is disabled.
+            return Ok(());
+        }
+    }
+
     update_edf_defaults_via_config(plugin)?;
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
@@ -131,7 +146,6 @@ pub(crate) fn slurmstepd_task_exit(
 }
 
 #[allow(unused_variables)]
-#[allow(unused_variables)]
 pub(crate) fn slurmstepd_exit(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
@@ -145,6 +159,38 @@ pub(crate) fn slurmstepd_exit(
 
     cleanup_fs_local(plugin, spank)?;
     sync_cleanup_fs_shared(plugin, spank)?;
+
+    Ok(())
+}
+
+fn slurmstepd_load_config(
+    plugin: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let config_path = resolve_config_path(spank);
+
+    // do not fail on variable expansion -> &Some(false)
+    let config = match raster::load_config_path(config_path, &Some(false), &None) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            skybox_log_error!("{}", e);
+            skybox_log_error!("plugin is disabled");
+            return plugin_err("plugin is disabled");
+        }
+    };
+
+    // Set Config
+    match setup_config(&config, plugin) {
+        Ok(_) => {}
+        Err(e) => {
+            skybox_log_error!("{}", e);
+            skybox_log_error!("plugin is disabled");
+        }
+    }
+
+    if !plugin.config.skybox_enabled {
+        return plugin_err("plugin is disabled");
+    }
 
     Ok(())
 }

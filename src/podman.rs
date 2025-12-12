@@ -3,7 +3,8 @@ use std::path::PathBuf;
 
 use slurm_spank::SpankHandle;
 
-use sarus_suite_podman_driver::{self as pmd, ContainerCtx, ExecutedCommand, PodmanCtx};
+use sarus_suite_podman_driver::loggable::{self as pmd, ExecutedCommand};
+use sarus_suite_podman_driver::{ContainerCtx, PodmanCtx};
 
 use crate::{SpankSkyBox, plugin_err, skybox_log_debug};
 
@@ -103,7 +104,7 @@ pub(crate) fn podman_start(
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
     let command = vec!["sleep", "infinity"];
 
-    let c_ctx = pmd::ContainerCtx {
+    let c_ctx = ContainerCtx {
         name: run.name.clone(),
         interactive: false,
         detach: true,
@@ -179,17 +180,19 @@ pub(crate) fn podman_stop(
 pub(crate) fn pmd_image_exists(image: &str, ctx: &PodmanCtx) -> bool {
     let prefix = "podman image exists";
 
-    let eb = pmd::image_exists_eb(&image, Some(&ctx));
+    let ec = pmd::image_exists(&image, Some(&ctx));
 
-    log_ec(eb.ec, prefix);
+    let result = ec.output.status.success();
 
-    eb.result
+    log_ec(ec, prefix);
+
+    result
 }
 
 pub(crate) fn pmd_pull(image: &str, ctx: &PodmanCtx) -> () {
     let prefix = "podman pull";
 
-    let ec = pmd::pull_ec(&image, Some(&ctx));
+    let ec = pmd::pull(&image, Some(&ctx));
 
     log_ec(ec, prefix);
 }
@@ -201,7 +204,7 @@ pub(crate) fn pmd_parallax_migrate(
 ) -> Result<(), Box<dyn Error>> {
     let prefix = "parallax_migrate";
 
-    let ec = pmd::parallax_migrate_ec(&PathBuf::from(parallax_path), ctx, image)?;
+    let ec = pmd::parallax_migrate(&PathBuf::from(parallax_path), ctx, image)?;
 
     log_ec(ec, prefix);
 
@@ -211,7 +214,7 @@ pub(crate) fn pmd_parallax_migrate(
 pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> () {
     let prefix = "podman rmi";
 
-    let ec = pmd::rmi_ec(&image, Some(&ctx));
+    let ec = pmd::rmi(&image, Some(&ctx));
 
     log_ec(ec, prefix);
 }
@@ -228,7 +231,7 @@ where
 {
     let prefix = "podman run";
 
-    let ec = pmd::run_from_edf_ec(edf, Some(&p_ctx), &c_ctx, cmd);
+    let ec = pmd::run_from_edf(edf, Some(&p_ctx), &c_ctx, cmd);
 
     log_ec(ec.clone(), prefix);
 

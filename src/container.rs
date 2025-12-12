@@ -4,8 +4,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 //use std::io::Write;
-use std::path::Path;
 use cfg_if;
+use std::path::Path;
 
 use slurm_spank::{
     SpankError,
@@ -33,7 +33,6 @@ cfg_if::cfg_if! {
         pub type PtrT = i8;
     }
 }
-
 
 pub(crate) fn container_join(
     ssb: &mut SpankSkyBox,
