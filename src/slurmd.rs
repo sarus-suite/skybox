@@ -4,6 +4,7 @@ use slurm_spank::SpankHandle;
 
 use crate::config::resolve_config_path;
 use crate::{SpankSkyBox, VERSION, plugin_err, skybox_log_debug, skybox_log_info};
+use raster::*;
 
 fn slurmd_load_config(
     plugin: &mut SpankSkyBox,
@@ -12,7 +13,7 @@ fn slurmd_load_config(
     let config_path = resolve_config_path(spank);
 
     // do not fail on variable expansion -> &Some(false)
-    plugin.config = raster::load_config_path(config_path, &Some(false), &None)?;
+    plugin.config = load_config_path(config_path, VarExpand::Try, &None)?;
 
     if !plugin.config.skybox_enabled {
         return plugin_err("plugin is disabled");

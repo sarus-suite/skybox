@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use slurm_spank::SpankHandle;
 
-use raster::Config;
+use raster::*;
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
@@ -40,7 +40,7 @@ pub(crate) fn plugin_enabled_in_config(
     let config_path = resolve_config_path(spank);
 
     // Do not expand variables
-    let config = raster::load_config_path(config_path, &None, &None)?;
+    let config = load_config_path(config_path, VarExpand::Never, &None)?;
 
     return Ok(config.skybox_enabled);
 }
@@ -115,7 +115,7 @@ pub(crate) fn render_user_job_config(
     //let job_config = raster::load_config_path(config_path, &Some(true), &je)?;
 
     // force variable expansion -> &Some(true)
-    let job_config = match raster::load_config_path(config_path, &Some(true), &je) {
+    let job_config = match load_config_path(config_path, VarExpand::Must, &je) {
         Ok(cfg) => cfg,
         Err(e) => {
             plugin.config.skybox_enabled = false;

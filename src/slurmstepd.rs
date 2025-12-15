@@ -7,6 +7,7 @@ use crate::args::*;
 use crate::config::*;
 use crate::container::*;
 use crate::edf::*;
+use raster::*;
 //use crate::skybox_log_context;
 use crate::sync::*;
 use crate::{
@@ -170,7 +171,7 @@ fn slurmstepd_load_config(
     let config_path = resolve_config_path(spank);
 
     // do not fail on variable expansion -> &Some(false)
-    let config = match raster::load_config_path(config_path, &Some(false), &None) {
+    let config = match load_config_path(config_path, VarExpand::Try, &None) {
         Ok(cfg) => cfg,
         Err(e) => {
             skybox_log_error!("{}", e);
