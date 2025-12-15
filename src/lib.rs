@@ -12,10 +12,10 @@ use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
-use crate::config::SkyBoxConfig;
+//use crate::config::SkyBoxConfig;
 use crate::podman::podman_get_pid_from_file;
 //use crate::environment::SkyBoxEDF;
-use raster::EDF;
+use raster::{Config, EDF};
 
 pub mod alloc;
 pub mod args;
@@ -54,7 +54,7 @@ struct SpankSkyBox {
     enabled: bool,
     */
     args: SkyBoxArgs,
-    config: SkyBoxConfig,
+    config: Config,
     edf: Option<EDF>,
     job: Option<Job>,
     run: Option<Run>,
@@ -137,7 +137,7 @@ pub(crate) fn spank_getenv(spank: &mut SpankHandle, var: &str) -> String {
 }
 
 pub(crate) fn is_skybox_enabled(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    if !ssb.config.enabled {
+    if !ssb.config.skybox_enabled {
         return false;
     }
 

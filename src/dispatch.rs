@@ -4,19 +4,12 @@ use slurm_spank::{Context, Plugin, SpankHandle};
 
 use crate::SpankSkyBox;
 use crate::alloc::*;
-use crate::config::*;
 use crate::slurmd::*;
 use crate::slurmstepd::*;
 use crate::srun::*;
 
 unsafe impl Plugin for SpankSkyBox {
     fn init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        let _ = load_config(self, spank);
-
-        if !self.config.enabled {
-            return Ok(());
-        }
-
         match spank.context()? {
             Context::Slurmd => {
                 let _ = slurmd_init(self, spank)?;
@@ -37,7 +30,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn init_post_opt(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -58,7 +51,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn user_init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -66,7 +59,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_init(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -74,7 +67,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -98,7 +91,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn slurmd_exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -106,7 +99,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_exit(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
@@ -114,7 +107,7 @@ unsafe impl Plugin for SpankSkyBox {
     }
 
     fn task_init_privileged(&mut self, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
-        if !self.config.enabled {
+        if !self.config.skybox_enabled {
             return Ok(());
         }
 
