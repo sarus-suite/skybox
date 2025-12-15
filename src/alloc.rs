@@ -9,6 +9,7 @@ use crate::args::*;
 use crate::config::*;
 use crate::edf::*;
 use crate::{SpankSkyBox, plugin_err, skybox_log_error};
+use raster::*;
 
 #[allow(unused_variables)]
 pub(crate) fn alloc_init(
@@ -103,7 +104,7 @@ fn alloc_load_config(
     let config_path = resolve_config_path(spank);
 
     // force variable expansion -> &Some(true)
-    let config = match raster::load_config_path(config_path, &Some(true), &None) {
+    let config = match load_config_path(config_path, VarExpand::Must, &None) {
         Ok(cfg) => cfg,
         Err(e) => {
             skybox_log_error!("{}", e);
