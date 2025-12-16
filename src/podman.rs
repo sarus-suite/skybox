@@ -204,9 +204,18 @@ pub(crate) fn pmd_parallax_migrate(
 ) -> Result<(), Box<dyn Error>> {
     let prefix = "parallax_migrate";
 
-    let ec = pmd::parallax_migrate(&PathBuf::from(parallax_path), ctx, image)?;
+    let ec = pmd::parallax_migrate(&PathBuf::from(parallax_path), ctx, image);
 
-    log_ec(ec, prefix);
+    log_ec(ec.clone(), prefix);
+
+    match ec.output.status.code() {
+        Some(rc) => {
+            if rc != 0 {
+                return plugin_err(format!("parallax migrate exited with {rc}").as_str());
+            }
+        }
+        None => return plugin_err("parallax migrate failed badly"),
+    };
 
     Ok(())
 }
