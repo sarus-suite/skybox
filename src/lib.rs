@@ -1,5 +1,5 @@
 use nix::libc::{gid_t, uid_t};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::Permissions;
@@ -9,6 +9,7 @@ use std::path::Path;
 //use std::sync::{Arc, Mutex};
 
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
+use process_sync::{SharedMutex, SharedMemoryObject, SharedCondvar};
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
@@ -58,6 +59,7 @@ struct SpankSkyBox {
     edf: Option<EDF>,
     job: Option<Job>,
     run: Option<Run>,
+    shm: Option<SharedMemory>,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -81,6 +83,47 @@ struct Run {
     podman_tmp_path: String,
     syncfile_path: String,
 }
+
+#[derive(Clone, Serialize, PartialEq)]
+pub enum TaskInitStatus { None, Exec(u32), Done(bool) }
+
+struct SharedMemory {
+    init_status: SharedMemoryObject<TaskInitStatus>,
+    init_complete: SharedCondvar,
+
+    init_status_mutex: SharedMutex,
+    init_complete_mutex: SharedMutex,
+}
+
+impl Serialize for SharedMemory {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_none()
+    }
+}
+
+impl Default for SharedMemory {
+    fn default() -> Self {
+        SharedMemory {
+            init_status: SharedMemoryObject::new(TaskInitStatus::None).unwrap(),
+            init_complete: SharedCondvar::new().unwrap(),
+
+            init_status_mutex: SharedMutex::new().unwrap(),
+            init_complete_mutex: SharedMutex::new().unwrap(),
+        }
+    }
+}
+
+/*
+impl Copy for SharedMemory {}
+
+impl Clone for SharedMemory {
+    fn clone(&self) -> Self {
+        Self {
+            init_status: self.init_status.
+*/
 
 #[macro_export]
 macro_rules! skybox_log_debug {
@@ -193,6 +236,7 @@ pub(crate) fn task_set_info(
     }
     Ok(())
 }
+
 pub(crate) fn run_set_info(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
@@ -222,6 +266,13 @@ pub(crate) fn run_set_info(
         syncfile_path: syncfile_path,
     });
 
+    Ok(())
+}
+
+pub(crate) fn shm_init(
+    ssb: &mut SpankSkyBox
+) -> Result<(), Box<dyn Error>> {
+    ssb.shm = Some(SharedMemory::default());
     Ok(())
 }
 
