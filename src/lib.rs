@@ -90,9 +90,11 @@ pub enum TaskInitStatus { None, Exec(u32), Done(bool) }
 struct SharedMemory {
     init_status: SharedMemoryObject<TaskInitStatus>,
     init_complete: SharedCondvar,
+    stop_tasks: SharedMemoryObject<u32>,
 
     init_status_mutex: SharedMutex,
     init_complete_mutex: SharedMutex,
+    stop_tasks_mutex: SharedMutex,
 }
 
 unsafe impl Sync for SharedMemory {}
@@ -112,9 +114,11 @@ impl Default for SharedMemory {
         SharedMemory {
             init_status: SharedMemoryObject::new(TaskInitStatus::None).unwrap(),
             init_complete: SharedCondvar::new().unwrap(),
+            stop_tasks: SharedMemoryObject::new(0).unwrap(),
 
             init_status_mutex: SharedMutex::new().unwrap(),
             init_complete_mutex: SharedMutex::new().unwrap(),
+            stop_tasks_mutex: SharedMutex::new().unwrap(),
         }
     }
 }

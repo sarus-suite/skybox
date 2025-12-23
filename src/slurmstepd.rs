@@ -159,7 +159,6 @@ pub(crate) fn slurmstepd_exit(
     //skybox_log_context(plugin);
 
     cleanup_fs_local(plugin, spank)?;
-    sync_cleanup_fs_shared(plugin, spank)?;
 
     Ok(())
 }

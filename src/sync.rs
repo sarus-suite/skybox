@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::fs::File;
 //use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::Arc;
@@ -11,21 +10,6 @@ use crate::{
     podman::podman_start, podman::podman_stop, skybox_log_debug, skybox_log_error,
     TaskInitStatus, SharedMemory
 };
-
-pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.nodeid == 0 {
-        return true;
-    }
-
-    return false;
-}
 
 pub(crate) fn sync_podman_pull(
     ssb: &mut SpankSkyBox,
@@ -161,24 +145,30 @@ pub(crate) fn sync_podman_stop(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let run = ssb.run.clone().unwrap();
     let job = ssb.job.clone().unwrap();
-    let task_id = job.local_task_id;
     let task_count = job.local_task_count;
 
-    // create sync folder if doesn't exist
-    let completed_dir_path = format!("{}/completed", run.podman_tmp_path);
-    if !std::path::Path::new(&completed_dir_path).exists() {
-        std::fs::create_dir_all(&completed_dir_path)?;
-    }
+    let mut shm_arc_clone = Arc::clone(&ssb.shm);
+    let shm: &mut SharedMemory = Arc::get_mut(&mut shm_arc_clone).unwrap();
 
-    // touch file in sync folder
-    let completed_file_path = format!("{}/task_{}.exit", completed_dir_path, task_id);
-    File::create(completed_file_path)?;
+    // Increase and check 'stop_tasks' counter 
+    let prev_stop_tasks;
+    match shm.stop_tasks_mutex.lock() {
+        Ok(_) => {
+            prev_stop_tasks = *shm.stop_tasks.get();
+            *shm.stop_tasks.get_mut() += 1;
+        },
+        Err(e) => {
+            skybox_log_debug!(
+                "task {} - cannot acquire mutex for stop_tasks: {}",
+                get_local_task_id(ssb), e
+            );
+            return plugin_err("cannot acquire mutex for stop_tasks");
+        },
+    };
 
-    // Wait for all tasks to stop podman.
-    let readdir = std::fs::read_dir(&completed_dir_path)?;
-    if (readdir.count() as u32) == task_count {
+    // Last task kills the container
+    if prev_stop_tasks == task_count - 1 {
         sync_cleanup_fs_local_dir_completed(ssb, spank)?;
         podman_stop(ssb, spank)?;
     }
@@ -186,6 +176,7 @@ pub(crate) fn sync_podman_stop(
     Ok(())
 }
 
+// To chesim: deprecated?
 pub(crate) fn sync_cleanup_fs_local_dir_completed(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
@@ -213,36 +204,6 @@ pub(crate) fn sync_cleanup_fs_local_dir_completed(
             }
         };
     }
-
-    Ok(())
-}
-
-pub(crate) fn sync_cleanup_fs_shared(
-    ssb: &mut SpankSkyBox,
-    spank: &mut SpankHandle,
-) -> Result<(), Box<dyn Error>> {
-    if !is_node_0(ssb, spank) {
-        return Ok(());
-    }
-
-    let syncfile_path = match ssb.run.clone() {
-        Some(r) => r.syncfile_path,
-        None => {
-            return plugin_err("couldn't find syncfile_path");
-        },
-    };
-
-    skybox_log_debug!("delete {}", &syncfile_path);
-    match std::fs::remove_file(&syncfile_path) {
-        Ok(_) => (),
-        Err(e) => {
-            let msg = format!(
-                "couldn't cleanup syncfile_path \"{:#?}\", error {}",
-                &syncfile_path, e
-            );
-            return plugin_err(&msg);
-        }
-    };
 
     Ok(())
 }
