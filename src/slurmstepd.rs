@@ -13,7 +13,7 @@ use crate::sync::*;
 use crate::{
     SpankSkyBox, VERSION, cleanup_fs_local, is_skybox_enabled, job_get_info, plugin_err,
     remote_unset_env_vars, run_set_info, setup_folders, setup_privileged_folders, skybox_log_error,
-    skybox_log_info, task_set_info, shm_init,
+    skybox_log_info, task_set_info,
 };
 
 #[allow(unused_variables)]
@@ -71,7 +71,6 @@ pub(crate) fn slurmstepd_user_init(
     //skybox_log_verbose!("USER_INIT");
 
     //skybox_log_context(plugin);
-    let _ = shm_init(plugin)?;
 
     match render_user_job_config(plugin, spank) {
         Ok(_) => (),

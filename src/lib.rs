@@ -6,7 +6,7 @@ use std::fs::Permissions;
 use std::os::unix::fs::{PermissionsExt, chown};
 //use std::os::raw::c_int;
 use std::path::Path;
-//use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 use process_sync::{SharedMutex, SharedMemoryObject, SharedCondvar};
@@ -59,7 +59,7 @@ struct SpankSkyBox {
     edf: Option<EDF>,
     job: Option<Job>,
     run: Option<Run>,
-    shm: Option<SharedMemory>,
+    shm: Arc<SharedMemory>,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -95,6 +95,9 @@ struct SharedMemory {
     init_complete_mutex: SharedMutex,
 }
 
+unsafe impl Sync for SharedMemory {}
+unsafe impl Send for SharedMemory {}
+
 impl Serialize for SharedMemory {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -115,15 +118,6 @@ impl Default for SharedMemory {
         }
     }
 }
-
-/*
-impl Copy for SharedMemory {}
-
-impl Clone for SharedMemory {
-    fn clone(&self) -> Self {
-        Self {
-            init_status: self.init_status.
-*/
 
 #[macro_export]
 macro_rules! skybox_log_debug {
@@ -266,13 +260,6 @@ pub(crate) fn run_set_info(
         syncfile_path: syncfile_path,
     });
 
-    Ok(())
-}
-
-pub(crate) fn shm_init(
-    ssb: &mut SpankSkyBox
-) -> Result<(), Box<dyn Error>> {
-    ssb.shm = Some(SharedMemory::default());
     Ok(())
 }
 

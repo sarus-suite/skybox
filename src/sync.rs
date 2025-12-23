@@ -12,36 +12,6 @@ use crate::{
     TaskInitStatus, SharedMemory
 };
 
-pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.local_task_id == 0 {
-        return true;
-    }
-
-    return false;
-}
-
-pub(crate) fn is_global_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
-    let job = match ssb.job.clone() {
-        Some(j) => j,
-        None => {
-            return false;
-        }
-    };
-
-    if job.global_task_id == 0 {
-        return true;
-    }
-
-    return false;
-}
-
 pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
     let job = match ssb.job.clone() {
         Some(j) => j,
@@ -61,10 +31,8 @@ pub(crate) fn sync_podman_pull(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let shm: &mut SharedMemory = match ssb.shm {
-        Some(s) => Arc::get_mut(&mut s),
-        None => return plugin_err("no shm found"),
-    };
+    let mut shm_arc_clone = Arc::clone(&ssb.shm);
+    let shm: &mut SharedMemory = Arc::get_mut(&mut shm_arc_clone).unwrap();
 
     // Check and update 'init_status' atomically.
     // If the atomic operation cannot be done for some reason, 
@@ -97,7 +65,7 @@ pub(crate) fn sync_podman_pull(
                     get_local_task_id(ssb)
                 );
                 *shm.init_status.get_mut() = TaskInitStatus::Done(false);
-                shm.init_complete.notify_all()?;
+                let _ = shm.init_complete.notify_all()?;
                 return plugin_err("image import failed");
             },
         };
@@ -110,7 +78,8 @@ pub(crate) fn sync_podman_start(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let shm: &mut SharedMemory = &mut ssb.shm.unwrap();
+    let mut shm_arc_clone = Arc::clone(&ssb.shm);
+    let shm: &mut SharedMemory = Arc::get_mut(&mut shm_arc_clone).unwrap();
 
     let exec_task_id = match shm.init_status.get().clone() {
         TaskInitStatus::Exec(task_id) => Some(task_id),
@@ -122,7 +91,7 @@ pub(crate) fn sync_podman_start(
         match podman_start(ssb, spank) {
             Ok(_) => {
                 *shm.init_status.get_mut() = TaskInitStatus::Done(true);
-                shm.init_complete.notify_all();
+                let _ = shm.init_complete.notify_all();
             }
             Err(e) => {
                 skybox_log_error!("{e}");
@@ -131,7 +100,7 @@ pub(crate) fn sync_podman_start(
                     get_local_task_id(ssb)
                 );
                 *shm.init_status.get_mut() = TaskInitStatus::Done(false);
-                shm.init_complete.notify_all()?;
+                let _ = shm.init_complete.notify_all()?;
                 return plugin_err("container start failed");
             }
         };
@@ -146,10 +115,8 @@ pub(crate) fn sync_podman_start_wait(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let shm: &mut SharedMemory = match ssb.shm {
-        Some(s) => Arc::get_mut(&mut s).expect(),
-        None => return plugin_err("no shm found"),
-    };
+    let mut shm_arc_clone = Arc::clone(&ssb.shm);
+    let shm: &mut SharedMemory = Arc::get_mut(&mut shm_arc_clone).unwrap();
 
     shm.init_complete.wait(&mut shm.init_complete_mutex)?;
 
