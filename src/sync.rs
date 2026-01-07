@@ -6,8 +6,10 @@ use std::path::Path;
 use slurm_spank::SpankHandle;
 
 use crate::{
-    SpankSkyBox, get_local_task_id, plugin_err, plugin_string, podman::podman_pull,
-    podman::podman_start, podman::podman_stop, skybox_log_debug, skybox_log_error,
+    SpankSkyBox, create_folder, dynconf::DynConf, dynconf::apply_dynconf,
+    dynconf::load_dynconf_url, get_job_env, get_local_task_id, get_plugin_name, plugin_err,
+    plugin_string, podman::podman_pull, podman::podman_start, podman::podman_stop,
+    skybox_log_debug, skybox_log_error,
 };
 
 pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
@@ -297,6 +299,147 @@ pub(crate) fn sync_cleanup_fs_shared(
             return plugin_err(&msg);
         }
     }
+
+    Ok(())
+}
+
+pub(crate) fn sync_load_dynconf(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) {
+    let job_node_id = match spank.job_nodeid() {
+        Ok(id) => id,
+        Err(e) => {
+            skybox_log_error!("cannot collect node_id: {e}");
+            return;
+        }
+    };
+
+    if job_node_id == 0 {
+        sync_load_dynconf_query(ssb, spank);
+    } else {
+        sync_load_dynconf_wait(ssb, spank);
+    }
+}
+
+fn sync_load_dynconf_query(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) {
+    let dynconf = load_dynconf_url(ssb, spank);
+    let filepath = get_dynconf_filepath(ssb, spank);
+
+    let mut file = match File::create(filepath) {
+        Ok(f) => f,
+        Err(_) => {
+            return;
+        }
+    };
+
+    let strjson = match serde_json::to_string(&dynconf) {
+        Ok(k) => k,
+        Err(_) => String::from("{}"),
+    };
+
+    match write!(file, "{}\n", strjson) {
+        Ok(_) => (),
+        Err(_) => {
+            return;
+        }
+    }
+}
+
+fn get_dynconf_filepath(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) -> String {
+    let job_id = match spank.job_id() {
+        Ok(id) => id,
+        Err(e) => {
+            skybox_log_error!("cannot collect job_id: {e}");
+            return String::from("");
+        }
+    };
+
+    let ue = &Some(get_job_env(spank));
+
+    let path = match raster::expand_vars_string(ssb.config.dynconf_path.clone(), ue) {
+        Ok(p) => p,
+        Err(e) => {
+            skybox_log_error!("error in variable expansion: {e}");
+            return String::from("");
+        }
+    };
+
+    let _ = create_folder(path.clone(), 0o700);
+
+    let filename = format!("{}_{}_{}.json", get_plugin_name(), job_id, "dynconf");
+    let filepath = format!("{}/{}", path, filename);
+
+    return filepath;
+}
+
+fn sync_load_dynconf_wait(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) {
+    let filepath = get_dynconf_filepath(ssb, spank);
+
+    let mut loop_num = 0;
+    let mut response = String::from("{}");
+
+    loop {
+        let result = std::fs::read_to_string(&filepath);
+        match result {
+            Ok(s) => {
+                if s != "" {
+                    response = s;
+                    break;
+                } else {
+                    skybox_log_debug!(
+                        "couldn't read dynconf at {filepath} yet: EMPTY, wait 1 sec and retry"
+                    );
+
+                    let pause = std::time::Duration::new(1, 0);
+                    std::thread::sleep(pause);
+                }
+            }
+            Err(e) => {
+                skybox_log_debug!(
+                    "couldn't read dynconf at {filepath} yet: {e}, wait 1 sec and retry"
+                );
+
+                let pause = std::time::Duration::new(1, 0);
+                std::thread::sleep(pause);
+            }
+        }
+        loop_num += 1;
+        if loop_num >= 10 {
+            break;
+        }
+    }
+
+    let dynconf: DynConf = match serde_json::from_str(&response) {
+        Ok(ok) => ok,
+        Err(_) => {
+            return;
+        }
+    };
+
+    apply_dynconf(ssb, dynconf);
+}
+
+pub(crate) fn sync_cleanup_dynconf(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    let filepath = get_dynconf_filepath(ssb, spank);
+    skybox_log_debug!("delete {}", &filepath);
+
+    match std::fs::remove_file(&filepath) {
+        Ok(_) => (),
+        Err(e) => {
+            let msg = format!("couldn't cleanup dynconf \"{:#?}\", error {}", &filepath, e);
+            return plugin_err(&msg);
+        }
+    }
+
+    //remove dir if not empty
+    let dirpath = match Path::new(&filepath).parent() {
+        Some(s) => s,
+        None => {
+            return Ok(());
+        }
+    };
+    let _ = std::fs::remove_dir(dirpath);
 
     Ok(())
 }

@@ -22,6 +22,7 @@ pub mod args;
 pub mod config;
 pub mod container;
 pub mod dispatch;
+pub mod dynconf;
 pub mod edf;
 pub mod podman;
 pub mod slurmd;
