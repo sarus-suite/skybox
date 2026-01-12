@@ -6,6 +6,7 @@ use slurm_spank::SpankHandle;
 use raster::*;
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
+use crate::dynconf::load_dynconf;
 
 pub(crate) fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
     let plugin_argv = spank.plugin_argv();
@@ -34,13 +35,17 @@ pub(crate) fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
 }
 
 pub(crate) fn plugin_enabled_in_config(
-    _plugin: &mut SpankSkyBox,
+    plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<bool, Box<dyn Error>> {
     let config_path = resolve_config_path(spank);
 
     // Do not expand variables
-    let config = load_config_path(config_path, VarExpand::Never, &None)?;
+    let mut config = load_config_path(config_path, VarExpand::Never, &None)?;
+    plugin.config.dynconf_url = config.dynconf_url;
+    plugin.config.dynconf_path = config.dynconf_path;
+    load_dynconf(plugin, spank);
+    config.skybox_enabled = plugin.config.skybox_enabled;
 
     return Ok(config.skybox_enabled);
 }

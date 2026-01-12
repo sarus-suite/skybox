@@ -15,6 +15,7 @@ use crate::{
     remote_unset_env_vars, run_set_info, setup_folders, setup_privileged_folders, skybox_log_error,
     skybox_log_info, task_set_info,
 };
+use crate::dynconf::load_dynconf;
 
 #[allow(unused_variables)]
 pub(crate) fn slurmstepd_init(
@@ -189,6 +190,7 @@ fn slurmstepd_load_config(
             skybox_log_error!("plugin is disabled");
         }
     }
+    load_dynconf(plugin, spank);
 
     if !plugin.config.skybox_enabled {
         return plugin_err("plugin is disabled");

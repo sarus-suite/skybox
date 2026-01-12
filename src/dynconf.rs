@@ -137,9 +137,9 @@ fn load_dynconf_slurmstepd(ssb: &mut SpankSkyBox, spank: &mut SpankHandle) {
 
 pub(crate) fn apply_dynconf(ssb: &mut SpankSkyBox, dynconf: DynConf) {
     if dynconf.plugin == "skybox" {
-        ssb.config.enabled = true;
+        ssb.config.skybox_enabled = true;
     } else if dynconf.plugin != "" {
-        ssb.config.enabled = false;
+        ssb.config.skybox_enabled = false;
     }
 }
 
