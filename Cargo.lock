@@ -1164,7 +1164,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "sarus-suite-podman-driver"
 version = "0.1.0"
-source = "git+https://github.com/sarus-suite/podman-driver?branch=chesim#89949d2a110473c68eb603246e8d4d56e0309931"
+source = "git+https://github.com/sarus-suite/podman-driver#eddc8f1d78c09563160968711de7b3984aab107a"
 dependencies = [
  "anyhow",
  "bstr",
