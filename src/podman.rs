@@ -1,7 +1,8 @@
 use std::error::Error;
 use std::path::PathBuf;
+use std::time::Instant;
 
-use slurm_spank::SpankHandle;
+use slurm_spank::{SpankHandle, spank_log_user};
 
 use sarus_suite_podman_driver::loggable::{self as pmd, ExecutedCommand};
 use sarus_suite_podman_driver::{ContainerCtx, PodmanCtx};
@@ -240,7 +241,18 @@ where
 {
     let prefix = "podman run";
 
+    let t0 = Instant::now();
     let ec = pmd::run_from_edf(edf, Some(&p_ctx), &c_ctx, cmd);
+    let tend = t0.elapsed();
+
+    if let Some(perfmon) = edf.annotations.get("com.skybox.perfmon") {
+        if perfmon == "true" {
+            spank_log_user!(
+                "skybox-perf: Podman run elapsed time: {:.6} sec",
+                tend.as_secs_f64()
+            );
+        }
+    }
 
     log_ec(ec.clone(), prefix);
 
