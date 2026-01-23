@@ -15,10 +15,13 @@ Slurm spank plugin written in rust for sarus-suite
 
 %install
 mkdir -p %{buildroot}{{ libdir }}
+chown root:root %{buildroot}{{ libdir }}
+chmod 0755 %{buildroot}{{ libdir }}
 cp /tmp/{{ libname }} %{buildroot}{{ libdir }}/{{ libname }}
+chown root:root %{buildroot}{{ libdir }}/{{ libname }}
+chmod 0755 %{buildroot}{{ libdir }}/{{ libname }}
 
 %clean
 
 %files
-%dir {{ libdir }}
-{{ libdir }}/{{ libname }}
+%attr(0755 root root) {{ libdir }}/{{ libname }}
