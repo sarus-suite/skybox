@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;
+use std::ffi::OsString;
 
 use slurm_spank::{SpankHandle, spank_log_user};
 
@@ -30,6 +31,15 @@ pub(crate) fn podman_pull(
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
+    // tell mount program to use squashfuse_ll
+    let podman_env = Some(vec![
+        (
+            OsString::from("PARALLAX_MP_SQUASHFUSE_CMD"),
+            OsString::from("/usr/bin/squashfuse_ll"),
+        ),
+    ]);
+
+
     let ro_ctx = PodmanCtx {
         podman_path: PathBuf::from(&edf.podman_path),
         module: None,
@@ -37,6 +47,7 @@ pub(crate) fn podman_pull(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        podman_env: podman_env.clone(),
     };
 
     let local_ctx = PodmanCtx {
@@ -46,6 +57,7 @@ pub(crate) fn podman_pull(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
         ro_store: None,
+        podman_env: podman_env.clone(),
     };
 
     let migrate_ctx = PodmanCtx {
@@ -55,6 +67,7 @@ pub(crate) fn podman_pull(
         runroot: None,
         parallax_mount_program: None,
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        podman_env: podman_env.clone(),
     };
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
@@ -120,7 +133,9 @@ pub(crate) fn podman_start(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: Some(PathBuf::from(&edf.parallax_mount_program)),
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
-    };
+        podman_env: None,
+    }
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     return pmd_run(&edf, &run_ctx, &c_ctx, command);
 }
