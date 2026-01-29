@@ -198,9 +198,9 @@ pub(crate) fn container_import_env(
             continue;
         }
 
-        let mut overwrite = false;
+        let mut overwrite = true;
         if edf_env.contains_key(key) {
-            overwrite = true;
+            overwrite = false;
         }
 
         match spank.setenv(key, value, overwrite) {
