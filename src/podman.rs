@@ -37,7 +37,9 @@ pub(crate) fn podman_pull(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
-    };
+        podman_env: None,
+    }
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&edf.podman_path),
@@ -46,7 +48,9 @@ pub(crate) fn podman_pull(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
         ro_store: None,
-    };
+        podman_env: None,
+    }
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let migrate_ctx = PodmanCtx {
         podman_path: PathBuf::from(&edf.podman_path),
@@ -55,7 +59,9 @@ pub(crate) fn podman_pull(
         runroot: None,
         parallax_mount_program: None,
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
-    };
+        podman_env: None,
+    }
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
         skybox_log_debug!(
@@ -120,7 +126,9 @@ pub(crate) fn podman_start(
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: Some(PathBuf::from(&edf.parallax_mount_program)),
         ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
-    };
+        podman_env: None,
+    }
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     return pmd_run(&edf, &run_ctx, &c_ctx, command);
 }
