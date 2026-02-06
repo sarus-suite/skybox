@@ -23,6 +23,7 @@ TARGET_NAME="release"
 
 sed -i -E -e "/^name = \"${PRODUCT}\"/,/^version \=/ s/^version =.*$/version = \"${RELEASE_VERSION#v}\"/1" Cargo.toml
 
+cargo update
 cargo build --release
 
 mkdir ${DIST_DIR}
