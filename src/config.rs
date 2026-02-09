@@ -6,6 +6,7 @@ use slurm_spank::SpankHandle;
 
 use raster::config::remove_sarus_annotations;
 use raster::*;
+use raster::config::{remove_sarus_annotations};
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
