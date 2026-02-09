@@ -27,22 +27,24 @@ pub(crate) fn podman_pull(
         }
     };
 
+    let config = &ssb.config;
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
     let ro_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let local_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
@@ -53,12 +55,12 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let migrate_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: None,
         parallax_mount_program: None,
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
@@ -75,7 +77,7 @@ pub(crate) fn podman_pull(
         }
 
         skybox_log_debug!("migrating image \"{}\" to shared imagestore", edf.image);
-        pmd_parallax_migrate(&edf.parallax_path, &migrate_ctx, &edf.image)?;
+        pmd_parallax_migrate(&config.parallax_path, &migrate_ctx, &edf.image)?;
 
         skybox_log_debug!("removing image \"{}\" from local graphroot", edf.image);
         pmd_rmi(&edf.image, &local_ctx);
@@ -106,6 +108,9 @@ pub(crate) fn podman_start(
         }
     };
 
+    let config = &ssb.config;
+
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
@@ -120,12 +125,12 @@ pub(crate) fn podman_start(
     };
 
     let run_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
-        module: Some(String::from(&edf.podman_module)),
+        podman_path: PathBuf::from(&config.podman_path),
+        module: Some(String::from(&config.podman_module)),
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
-        parallax_mount_program: Some(PathBuf::from(&edf.parallax_mount_program)),
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        parallax_mount_program: Some(PathBuf::from(&config.parallax_mount_program)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");

@@ -81,6 +81,7 @@ pub(crate) fn srun_init_post_opt(
 ) -> Result<(), Box<dyn Error>> {
     let _ = load_plugin_args(plugin, spank)?;
     let _ = load_edf(plugin, spank)?;
+    update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
     let _ = set_remaining_default_args(plugin)?;
 
     Ok(())

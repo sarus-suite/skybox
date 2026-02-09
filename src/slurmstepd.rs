@@ -45,6 +45,7 @@ pub(crate) fn slurmstepd_init_post_opt(
     let user_uid = spank.job_uid()?;
     let old_uid = setfsuid(Uid::from(user_uid));
     let _ = load_edf(plugin, spank)?;
+    //update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
     let _ = setfsuid(Uid::from(old_uid));
 
     if !is_skybox_enabled(plugin, spank) {
@@ -80,7 +81,9 @@ pub(crate) fn slurmstepd_user_init(
         }
     }
 
-    update_edf_defaults_via_config(plugin)?;
+    //update_edf_defaults_via_config(plugin)?;
+    //update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
+
     let _ = run_set_info(plugin, spank)?;
     setup_folders(plugin, spank)?;
     modify_edf_for_sbatch(plugin, spank)?;

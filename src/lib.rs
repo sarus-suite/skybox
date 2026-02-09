@@ -199,7 +199,7 @@ pub(crate) fn run_set_info(
 ) -> Result<(), Box<dyn Error>> {
     let config = ssb.config.clone();
     let job = ssb.job.clone().unwrap();
-    let edf = ssb.edf.clone().unwrap();
+    //let edf = ssb.edf.clone().unwrap();
 
     let mut step_name = format!("{}", job.stepid);
     if job.stepid == SLURM_BATCH_SCRIPT {
@@ -208,7 +208,7 @@ pub(crate) fn run_set_info(
 
     let name = format!("{}_{}.{}", get_plugin_name(), job.jobid, step_name);
     let podman_tmp_path = format!("{}/{}", config.podman_tmp_path, name);
-    let syncfile_path = format!("{}/.{}_import.done", edf.parallax_imagestore, name);
+    let syncfile_path = format!("{}/.{}_import.done", config.parallax_imagestore, name);
 
     let pid = match podman_get_pid_from_file(ssb) {
         Ok(s) => s,

@@ -5,6 +5,7 @@ use std::path::Path;
 use slurm_spank::SpankHandle;
 
 use raster::*;
+use raster::config::{remove_sarus_annotations};
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
@@ -124,7 +125,7 @@ pub(crate) fn render_user_job_config(
     //let job_config = raster::load_config_path(config_path, &Some(true), &je)?;
 
     // force variable expansion -> &Some(true)
-    let job_config = match load_config_path(config_path, VarExpand::Must, &je) {
+    let mut job_config = match load_config_path(config_path, VarExpand::Must, &je) {
         Ok(cfg) => cfg,
         Err(e) => {
             plugin.config.skybox_enabled = false;
@@ -134,6 +135,18 @@ pub(crate) fn render_user_job_config(
             return plugin_err("plugin is disabled");
         }
     };
+    let mut edf = match plugin.edf.clone() {
+        Some(f) => f,
+        None => {
+            plugin.config.skybox_enabled = false;
+            skybox_log_error!("Error on configuration loading, cannot find edf");
+            skybox_log_error!("plugin is disabled");
+            return plugin_err("plugin is disabled");
+        }
+    };
+    update_config_by_user(&mut job_config, edf.clone())?;
+    remove_sarus_annotations(&mut edf)?;
+    plugin.edf = Some(edf);
 
     match setup_config(&job_config, plugin) {
         Ok(_) => {}
