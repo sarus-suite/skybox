@@ -19,6 +19,9 @@ echo $VERSION_TAG
 if [ -z "${VERSION_TAG}" ]
 then
     echo "ERROR: cannot gather RELEASE TAG"
+    echo "VERSION_TAG: ${VERSION_TAG}"
+    echo "GITHUB_REF_NAME: ${GITHUB_REF_NAME}"
+    echo "GITHUB_REF_TYPE: ${GITHUB_REF_TYPE}"
     exit 1
 fi
 cd /tmp

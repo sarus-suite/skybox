@@ -13,6 +13,9 @@ jobs:
       ${{ github.event.workflow_run.conclusion == 'success' }} &&
       ( github.actor == 'matteo-chesi' )
     runs-on: chesim-zinal-login
+    env:
+      GITHUB_REF_NAME: ${{ github.ref_name }}
+      GITHUB_REF_TYPE: ${{ github.ref_type }}
     steps:
       - uses: actions/checkout@v4
 
