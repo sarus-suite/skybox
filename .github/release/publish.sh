@@ -15,8 +15,6 @@ check_build_container_image || exit 1
 podman run --rm -ti \
     -e SSH_AUTH_SOCK=${SSH_AUTH_SOCK} \
     -v ${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK} \
-    -e GITHUB_REF_NAME=${GITHUB_REF_NAME} \
-    -e GITHUB_REF_TYPE=${GITHUB_REF_TYPE} \
     -v ~/.config/glab-cli:/root/.config/glab-cli \
     -v ${BASE_DIR}:/mnt \
     ${BUILD_IMAGE_NAME} \
