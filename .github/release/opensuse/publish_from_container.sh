@@ -14,11 +14,14 @@ cat /etc/os-release | grep PRETTY
 
 cd /mnt
 VERSION_TAG=$(git describe --tags)
+GIT_BRANCH=$(git branch --show-current)
 echo "TAG:"
 echo $VERSION_TAG
 if [ -z "${VERSION_TAG}" ]
 then
     echo "ERROR: cannot gather RELEASE TAG"
+    echo "VERSION_TAG=${VERSION_TAG}"	
+    echo "BRANCH=${GIT_BRANCH}"
     exit 1
 fi
 cd /tmp
