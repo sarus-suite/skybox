@@ -36,3 +36,12 @@ jobs:
           replacesArtifacts: false
           draft: false
           prerelease: false
+
+  publish:
+    name: "internal publishing"
+    needs: build
+    runs-on: chesim-zinal-login
+    steps:
+      - name: publish
+        run: |
+          .github/release/publish.sh
