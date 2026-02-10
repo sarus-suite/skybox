@@ -135,7 +135,7 @@ pub(crate) fn podman_start(
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
-    return pmd_run(&edf, &run_ctx, &c_ctx, command);
+    return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
 
 pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box<dyn Error>> {
@@ -244,6 +244,7 @@ pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> () {
 
 pub(crate) fn pmd_run<I, S>(
     edf: &raster::EDF,
+    config: &raster::Config,
     p_ctx: &PodmanCtx,
     c_ctx: &ContainerCtx,
     cmd: I,
@@ -258,13 +259,11 @@ where
     let ec = pmd::run_from_edf(edf, Some(&p_ctx), &c_ctx, cmd);
     let tend = t0.elapsed();
 
-    if let Some(perfmon) = edf.annotations.get("com.skybox.perfmon") {
-        if perfmon == "true" {
-            spank_log_user!(
-                "skybox-perf: Podman run elapsed time: {:.6} sec",
-                tend.as_secs_f64()
-            );
-        }
+    if config.perfmon {
+        spank_log_user!(
+            "skybox-perf: Podman run elapsed time: {:.6} sec",
+             tend.as_secs_f64()
+        );
     }
 
     log_ec(ec.clone(), prefix);
