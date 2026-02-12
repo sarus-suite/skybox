@@ -128,7 +128,9 @@ pub(crate) fn container_wait_cwd(
 
         // Fail with error after max attempts
         if attempts >= max_attempts {
-            let msg = format!("failed to open cwd {cwd} after {attempts} attempts: {failure}");
+            let msg = format!("failed to resolve container cwd via {cwd} after {attempts} attempts: {failure}. \
+This can happen if the container is not started with host PID namespace (podman --pidns=host), \
+so the host cannot access /proc/<pid>/cwd for the container process.");
             skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
             return plugin_err(&msg);
         }
