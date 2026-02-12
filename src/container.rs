@@ -92,7 +92,7 @@ pub(crate) fn container_wait_cwd(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let pid = ssb.run.clone().unwrapp().pid;
+    let pid = ssb.run.clone().unwrap().pid;
     let cwd = format!("/proc/{pid}/cwd");
 
     let mut attempts: u32 = 0;
