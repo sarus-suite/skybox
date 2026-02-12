@@ -87,11 +87,12 @@ pub(crate) fn container_join(
     Ok(())
 }
 
+
 pub(crate) fn container_wait_cwd(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let pid = ssb.run.clone().unwrap().pid;
+    let pid = ssb.run.clone().unwrapp().pid;
     let cwd = format!("/proc/{pid}/cwd");
 
     let mut attempts: u32 = 0;
@@ -144,6 +145,7 @@ so the host cannot access /proc/<pid>/cwd for the container process."
 
     Ok(())
 }
+
 
 pub(crate) fn container_set_workdir(
     ssb: &mut SpankSkyBox,
