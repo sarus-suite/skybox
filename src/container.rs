@@ -87,27 +87,58 @@ pub(crate) fn container_join(
     Ok(())
 }
 
+
 pub(crate) fn container_wait_cwd(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let pid = ssb.run.clone().unwrap().pid;
+    let pid = ssb.run.clone().unwrapp().pid;
     let cwd = format!("/proc/{pid}/cwd");
 
-    while let Err(e) = File::open(&cwd) {
-        //let msg = plugin_string(format!("couldn't open cwd: {e}, wait 1 sec and retry").as_str());
-        //spank_log_debug!("{msg}");
-        skybox_log_debug!(
-            "task {} - couldn't open cwd: {e}, wait 1 sec and retry",
-            get_local_task_id(ssb)
-        );
+    let mut attempts: u32 = 0;
+    let pause = std::time::Duration::from_millis(100);
+    let max_attempts: u32 = 600;
 
-        let pause = std::time::Duration::new(1, 0);
+    loop {
+        // Validate the cwd symlink resolves to an actual cwd. If not, return failure string.
+        let failure: Option<String> = match std::fs::read_link(&cwd) {
+            Ok(target) => {
+                if target.is_dir() {
+                    None
+                } else {
+                    Some(format!("cwd link resolved to non-dir target {target:?}"))
+                }
+            }
+            Err(e) => Some(format!("couldn't read cwd link {cwd}: {e}")),
+        };
+
+        // Success case
+        if failure.is_none() {
+            break;
+        }
+
+        // Go for retry
+        attempts += 1;
+        let failure = failure.unwrap();
+
+        // Log first and every 50 retries to limit log spam
+        if attempts == 1 || attempts % 50 == 0 {
+            skybox_log_debug!("task {} - {failure}, waiting and retrying", get_local_task_id(ssb));
+        }
+
+        // Fail with error after max attempts
+        if attempts >= max_attempts {
+            let msg = format!("failed to open cwd {cwd} after {attempts} attempts: {failure}");
+            skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
+            return plugin_err(&msg);
+        }
+
         std::thread::sleep(pause);
     }
 
     Ok(())
 }
+
 
 pub(crate) fn container_set_workdir(
     ssb: &mut SpankSkyBox,
