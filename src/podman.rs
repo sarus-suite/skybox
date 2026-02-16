@@ -69,6 +69,7 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
+    
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
