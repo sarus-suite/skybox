@@ -34,7 +34,12 @@ pub(crate) fn alloc_init_post_opt(
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
     load_plugin_args(plugin, spank)?;
+    if !plugin.config.skybox_enabled {
+        return Ok(());
+    }
+
     load_edf(plugin, spank)?;
+    update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
     set_remaining_default_args(plugin)?;
 
     //skybox_log_context(plugin);

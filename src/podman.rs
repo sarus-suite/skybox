@@ -27,22 +27,24 @@ pub(crate) fn podman_pull(
         }
     };
 
+    let config = &ssb.config;
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
     let ro_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
         parallax_mount_program: None,
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let local_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
@@ -53,12 +55,12 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let migrate_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
+        podman_path: PathBuf::from(&config.podman_path),
         module: None,
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: None,
         parallax_mount_program: None,
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
@@ -75,7 +77,7 @@ pub(crate) fn podman_pull(
         }
 
         skybox_log_debug!("migrating image \"{}\" to shared imagestore", edf.image);
-        pmd_parallax_migrate(&edf.parallax_path, &migrate_ctx, &edf.image)?;
+        pmd_parallax_migrate(&config.parallax_path, &migrate_ctx, &edf.image)?;
 
         skybox_log_debug!("removing image \"{}\" from local graphroot", edf.image);
         pmd_rmi(&edf.image, &local_ctx);
@@ -106,6 +108,8 @@ pub(crate) fn podman_start(
         }
     };
 
+    let config = &ssb.config;
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
@@ -120,17 +124,17 @@ pub(crate) fn podman_start(
     };
 
     let run_ctx = PodmanCtx {
-        podman_path: PathBuf::from(&edf.podman_path),
-        module: Some(String::from(&edf.podman_module)),
+        podman_path: PathBuf::from(&config.podman_path),
+        module: Some(String::from(&config.podman_module)),
         graphroot: Some(PathBuf::from(&graphroot)),
         runroot: Some(PathBuf::from(&runroot)),
-        parallax_mount_program: Some(PathBuf::from(&edf.parallax_mount_program)),
-        ro_store: Some(PathBuf::from(&edf.parallax_imagestore)),
+        parallax_mount_program: Some(PathBuf::from(&config.parallax_mount_program)),
+        ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
-    return pmd_run(&edf, &run_ctx, &c_ctx, command);
+    return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
 
 pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box<dyn Error>> {
@@ -239,6 +243,7 @@ pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> () {
 
 pub(crate) fn pmd_run<I, S>(
     edf: &raster::EDF,
+    config: &raster::Config,
     p_ctx: &PodmanCtx,
     c_ctx: &ContainerCtx,
     cmd: I,
@@ -253,13 +258,11 @@ where
     let ec = pmd::run_from_edf(edf, Some(&p_ctx), &c_ctx, cmd);
     let tend = t0.elapsed();
 
-    if let Some(perfmon) = edf.annotations.get("com.skybox.perfmon") {
-        if perfmon == "true" {
-            spank_log_user!(
-                "skybox-perf: Podman run elapsed time: {:.6} sec",
-                tend.as_secs_f64()
-            );
-        }
+    if config.perfmon {
+        spank_log_user!(
+            "skybox-perf: Podman run elapsed time: {:.6} sec",
+            tend.as_secs_f64()
+        );
     }
 
     log_ec(ec.clone(), prefix);

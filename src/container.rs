@@ -87,7 +87,6 @@ pub(crate) fn container_join(
     Ok(())
 }
 
-
 pub(crate) fn container_wait_cwd(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
@@ -123,14 +122,19 @@ pub(crate) fn container_wait_cwd(
 
         // Log first and every 50 retries to limit log spam
         if attempts == 1 || attempts % 50 == 0 {
-            skybox_log_debug!("task {} - {failure}, waiting and retrying", get_local_task_id(ssb));
+            skybox_log_debug!(
+                "task {} - {failure}, waiting and retrying",
+                get_local_task_id(ssb)
+            );
         }
 
         // Fail with error after max attempts
         if attempts >= max_attempts {
-            let msg = format!("failed to resolve container cwd via {cwd} after {attempts} attempts: {failure}. \
+            let msg = format!(
+                "failed to resolve container cwd via {cwd} after {attempts} attempts: {failure}. \
 This can happen if the container is not started with host PID namespace (podman --pidns=host), \
-so the host cannot access /proc/<pid>/cwd for the container process.");
+so the host cannot access /proc/<pid>/cwd for the container process."
+            );
             skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
             return plugin_err(&msg);
         }
@@ -140,7 +144,6 @@ so the host cannot access /proc/<pid>/cwd for the container process.");
 
     Ok(())
 }
-
 
 pub(crate) fn container_set_workdir(
     ssb: &mut SpankSkyBox,

@@ -76,7 +76,7 @@ fn spank_remote_get_user_search_paths(spank: &mut SpankHandle) -> Vec<String> {
 
     search_paths
 }
-
+/*
 pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
     let mut edf = match ssb.edf.clone() {
         Some(e) => e,
@@ -119,6 +119,7 @@ pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<()
 
     Ok(())
 }
+*/
 
 pub(crate) fn modify_edf_for_sbatch(
     ssb: &mut SpankSkyBox,
