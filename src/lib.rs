@@ -7,6 +7,7 @@ use std::os::unix::fs::{PermissionsExt, chown};
 //use std::os::raw::c_int;
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
+use nix::unistd::{geteuid, getegid};
 
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
 
@@ -72,6 +73,8 @@ struct Job {
     local_task_count: u32,
     total_task_count: u32,
     cwd: String,
+    euid: uid_t,
+    egid: gid_t,
 }
 
 #[derive(Clone, Serialize, Default)]
@@ -176,7 +179,20 @@ pub(crate) fn job_get_info(
         local_task_count: spank.job_local_task_count()?,
         total_task_count: spank.job_total_task_count()?,
         cwd: cwd,
+        euid: geteuid().as_raw(),
+        egid: getegid().as_raw(),
     });
+
+    // grab euid to use by squashfuse downstream to mount program
+    if let Some(job) = ssb.job.as_ref() {
+        skybox_log_debug!(
+            "job uid/gid={}/{} euid/egid={}/{}",
+            job.uid,
+            job.gid,
+            job.euid,
+            job.egid
+        );
+    }
 
     Ok(())
 }
