@@ -29,6 +29,15 @@ pub(crate) fn podman_pull(
 
     let config = &ssb.config;
 
+    let (euid, egid) = match ssb.job.as_ref() {
+        Some(job) => (job.euid, job.egid),
+        None => {
+            // Fallback: use current process effective ids
+            use nix::unistd::{geteuid, getegid};
+            (geteuid().as_raw(), getegid().as_raw())
+        }
+    };
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
@@ -41,8 +50,8 @@ pub(crate) fn podman_pull(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", job.euid.to_string())
-    .with_env("PARALLAX_MP_GID", job.egid.to_string())
+    .with_env("PARALLAX_MP_UID", euid.to_string())
+    .with_env("PARALLAX_MP_GID", egid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
     
 
@@ -55,8 +64,8 @@ pub(crate) fn podman_pull(
         ro_store: None,
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", job.euid.to_string())
-    .with_env("PARALLAX_MP_GID", job.egid.to_string())
+    .with_env("PARALLAX_MP_UID", euid.to_string())
+    .with_env("PARALLAX_MP_GID", egid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     let migrate_ctx = PodmanCtx {
@@ -68,8 +77,8 @@ pub(crate) fn podman_pull(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", job.euid.to_string())
-    .with_env("PARALLAX_MP_GID", job.egid.to_string())
+    .with_env("PARALLAX_MP_UID", euid.to_string())
+    .with_env("PARALLAX_MP_GID", egid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
@@ -117,6 +126,15 @@ pub(crate) fn podman_start(
 
     let config = &ssb.config;
 
+    let (euid, egid) = match ssb.job.as_ref() {
+        Some(job) => (job.euid, job.egid),
+        None => {
+            // Conservative fallback: use current process effective ids
+            use nix::unistd::{geteuid, getegid};
+            (geteuid().as_raw(), getegid().as_raw())
+        }
+    };
+
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
@@ -139,11 +157,11 @@ pub(crate) fn podman_start(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", job.euid.to_string())
-    .with_env("PARALLAX_MP_GID", job.egid.to_string())
+    .with_env("PARALLAX_MP_UID", euid.to_string())
+    .with_env("PARALLAX_MP_GID", egid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
 
-    skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", job.euid, job.egid);
+    skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", euid, egid);
 
     return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
