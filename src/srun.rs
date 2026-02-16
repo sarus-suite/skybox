@@ -79,7 +79,12 @@ pub(crate) fn srun_init_post_opt(
     plugin: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
+
     let _ = load_plugin_args(plugin, spank)?;
+    if !plugin.config.skybox_enabled {
+        return Ok(());
+    }
+
     let _ = load_edf(plugin, spank)?;
     update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
     let _ = set_remaining_default_args(plugin)?;

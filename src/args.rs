@@ -523,6 +523,8 @@ pub(crate) fn load_plugin_args(
             .map(|s| s.to_string())
             .unwrap();
         let _ = set_arg_edf(ssb, arg_value)?;
+    } else {
+        ssb.config.skybox_enabled = false;
     }
 
     /*

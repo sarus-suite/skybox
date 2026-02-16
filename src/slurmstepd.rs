@@ -41,6 +41,9 @@ pub(crate) fn slurmstepd_init_post_opt(
 ) -> Result<(), Box<dyn Error>> {
     //skybox_log_verbose!("INIT_POST_OPT");
     let _ = load_plugin_args(plugin, spank)?;
+    if !plugin.config.skybox_enabled {
+        return Ok(());
+    }
 
     let user_uid = spank.job_uid()?;
     let old_uid = setfsuid(Uid::from(user_uid));

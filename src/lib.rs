@@ -104,6 +104,13 @@ macro_rules! skybox_log_info {
 }
 
 #[macro_export]
+macro_rules! skybox_log_user {
+    ($($arg:tt)*) => ({
+        slurm_spank::slurm_spank_log(&format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
+    })
+}
+
+#[macro_export]
 macro_rules! skybox_log_verbose {
     ($($arg:tt)*) => ({
         slurm_spank::spank_log(slurm_spank::LogLevel::Verbose, &format!("[{}] {}", $crate::get_plugin_name(), &format!($($arg)*)));
