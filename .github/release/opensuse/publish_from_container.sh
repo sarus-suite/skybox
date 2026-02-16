@@ -14,8 +14,8 @@ cat /etc/os-release | grep PRETTY
 
 cd /mnt
 VERSION_TAG=$(git describe --tags)
-echo "TAG:"
-echo $VERSION_TAG
+echo "TAG: $VERSION_TAG"
+
 if [ -z "${VERSION_TAG}" ]
 then
     echo "ERROR: cannot gather RELEASE TAG"
