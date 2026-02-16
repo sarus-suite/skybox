@@ -1,11 +1,11 @@
 use std::error::Error;
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 
 use slurm_spank::SpankHandle;
 
+use raster::config::remove_sarus_annotations;
 use raster::*;
-use raster::config::{remove_sarus_annotations};
 
 use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
 
@@ -80,7 +80,8 @@ pub(crate) fn setup_config(
         return plugin_err("cannot find parallax_imagestore");
     } else {
         let store = &config.parallax_imagestore;
-        if !Path::new(store).exists() { // If imagestore does not exist, it tries to create it
+        if !Path::new(store).exists() {
+            // If imagestore does not exist, it tries to create it
             if let Err(e) = std::fs::create_dir_all(store) {
                 plugin.config.skybox_enabled = false;
                 return plugin_err(&format!("cannot create parallax_imagestore: {e}"));

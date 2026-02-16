@@ -110,7 +110,6 @@ pub(crate) fn podman_start(
 
     let config = &ssb.config;
 
-
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
@@ -262,7 +261,7 @@ where
     if config.perfmon {
         spank_log_user!(
             "skybox-perf: Podman run elapsed time: {:.6} sec",
-             tend.as_secs_f64()
+            tend.as_secs_f64()
         );
     }
 
