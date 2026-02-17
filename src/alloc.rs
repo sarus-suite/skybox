@@ -10,7 +10,6 @@ use crate::config::*;
 use crate::edf::*;
 use crate::skybox_log_user;
 use crate::{SpankSkyBox, plugin_err, skybox_log_error};
-use crate::skybox_log_user;
 use raster::*;
 
 #[allow(unused_variables)]
