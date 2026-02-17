@@ -8,8 +8,8 @@ use slurm_spank::{SpankHandle, spank_log_user};
 use crate::args::*;
 use crate::config::*;
 use crate::edf::*;
-use crate::{SpankSkyBox, plugin_err, skybox_log_error};
 use crate::skybox_log_user;
+use crate::{SpankSkyBox, plugin_err, skybox_log_error};
 use raster::*;
 
 #[allow(unused_variables)]
