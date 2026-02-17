@@ -4,8 +4,7 @@ use std::error::Error;
 
 use raster::mount::SarusMount;
 
-use crate::SLURM_BATCH_SCRIPT;
-use crate::{SpankSkyBox, get_job_env, skybox_log_debug, spank_getenv};
+use crate::{SLURM_BATCH_SCRIPT, SpankSkyBox, skybox_log_debug, spank_getenv};
 
 pub(crate) fn load_edf(
     ssb: &mut SpankSkyBox,
@@ -21,12 +20,12 @@ pub(crate) fn load_edf(
     let edf: raster::EDF;
 
     match spank.context()? {
-        Context::Local => {
-            edf = raster::render(edf_name)?;
-        }
+        Context::Local | Context::Allocator => {
+            edf = local_edf_render(edf_name)?;
+        },
         Context::Remote => {
-            edf = spank_remote_edf_render(edf_name, spank)?;
-        }
+            edf = spank_remote_get_edf(spank)?;
+        },
         _ => {
             return Ok(());
         }
@@ -36,6 +35,26 @@ pub(crate) fn load_edf(
     Ok(())
 }
 
+fn local_edf_render(
+    path: String,
+) -> Result<raster::EDF, Box<dyn Error>> {
+    let edf = raster::render(path)?;
+    define_edf_expanded_envvar(&edf)?;
+    Ok(edf)
+}
+
+fn define_edf_expanded_envvar(
+    edf: &raster::EDF,
+) -> Result<(), Box<dyn Error>> {
+    let key = "SLURM_EDF_EXPANDED";
+    let value = edf.to_toml_string()?;
+    unsafe {
+        std::env::set_var(key, value);
+    }
+    Ok(())
+}
+
+/*
 fn spank_remote_edf_render(
     path: String,
     spank: &mut SpankHandle,
@@ -44,7 +63,18 @@ fn spank_remote_edf_render(
     let ue = &Some(get_job_env(spank));
     Ok(raster::render_from_search_paths(path, sp, ue)?)
 }
+*/
 
+fn spank_remote_get_edf(
+    spank: &mut SpankHandle,
+) -> Result<raster::EDF, Box<dyn Error>> {
+    let key = "SLURM_EDF_EXPANDED";
+    let value = spank_getenv(spank, key);
+    let edf = raster::get_edf_from_string(value)?;
+    Ok(edf)
+}
+
+/*
 fn spank_remote_get_search_paths(spank: &mut SpankHandle) -> Vec<String> {
     let mut search_paths = vec![];
 
@@ -56,6 +86,7 @@ fn spank_remote_get_search_paths(spank: &mut SpankHandle) -> Vec<String> {
 
     search_paths
 }
+
 
 fn spank_remote_get_user_search_paths(spank: &mut SpankHandle) -> Vec<String> {
     let mut search_paths = vec![];
@@ -76,7 +107,7 @@ fn spank_remote_get_user_search_paths(spank: &mut SpankHandle) -> Vec<String> {
 
     search_paths
 }
-/*
+
 pub(crate) fn update_edf_defaults_via_config(ssb: &mut SpankSkyBox) -> Result<(), Box<dyn Error>> {
     let mut edf = match ssb.edf.clone() {
         Some(e) => e,

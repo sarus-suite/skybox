@@ -10,6 +10,7 @@ use std::path::Path;
 use nix::unistd::{geteuid, getegid};
 
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
+use slurm_spank::Context;
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
@@ -403,10 +404,26 @@ pub(crate) fn remote_unset_env_vars(
 }
 
 #[allow(dead_code)]
-pub(crate) fn skybox_log_context(ssb: &SpankSkyBox) -> () {
-    skybox_log_verbose!("computed context:");
-    skybox_log_verbose!(
-        "{}",
-        serde_json::to_string_pretty(&ssb).unwrap_or(String::from("ERROR"))
-    );
+pub(crate) fn skybox_log_context(ssb: &SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+
+     let local = match spank.context()? {
+            Context::Local => true,
+            _ => false,
+    };
+
+    if local {
+        skybox_log_user!("computed context:");
+        skybox_log_user!(
+            "{}",
+            serde_json::to_string_pretty(&ssb).unwrap_or(String::from("ERROR"))
+        );
+    } else {
+        skybox_log_verbose!("computed context:");
+        skybox_log_verbose!(
+            "{}",
+            serde_json::to_string_pretty(&ssb).unwrap_or(String::from("ERROR"))
+        );
+    }
+
+    Ok(())
 }
