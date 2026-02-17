@@ -11,6 +11,7 @@ use nix::unistd::{geteuid, getegid};
 
 use slurm_spank::Context;
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
+use slurm_spank::Context;
 
 //use raster::mount::SarusMounts;
 use crate::args::SkyBoxArgs;
@@ -404,13 +405,11 @@ pub(crate) fn remote_unset_env_vars(
 }
 
 #[allow(dead_code)]
-pub(crate) fn skybox_log_context(
-    ssb: &SpankSkyBox,
-    spank: &mut SpankHandle,
-) -> Result<(), Box<dyn Error>> {
-    let local = match spank.context()? {
-        Context::Local => true,
-        _ => false,
+pub(crate) fn skybox_log_context(ssb: &SpankSkyBox, spank: &mut SpankHandle) -> Result<(), Box<dyn Error>> {
+
+     let local = match spank.context()? {
+            Context::Local => true,
+            _ => false,
     };
 
     if local {
