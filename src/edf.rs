@@ -22,10 +22,10 @@ pub(crate) fn load_edf(
     match spank.context()? {
         Context::Local | Context::Allocator => {
             edf = local_edf_render(edf_name)?;
-        },
+        }
         Context::Remote => {
             edf = spank_remote_get_edf(spank)?;
-        },
+        }
         _ => {
             return Ok(());
         }
@@ -35,17 +35,13 @@ pub(crate) fn load_edf(
     Ok(())
 }
 
-fn local_edf_render(
-    path: String,
-) -> Result<raster::EDF, Box<dyn Error>> {
+fn local_edf_render(path: String) -> Result<raster::EDF, Box<dyn Error>> {
     let edf = raster::render(path)?;
     define_edf_expanded_envvar(&edf)?;
     Ok(edf)
 }
 
-fn define_edf_expanded_envvar(
-    edf: &raster::EDF,
-) -> Result<(), Box<dyn Error>> {
+fn define_edf_expanded_envvar(edf: &raster::EDF) -> Result<(), Box<dyn Error>> {
     let key = "SLURM_EDF_EXPANDED";
     let value = edf.to_toml_string()?;
     unsafe {
@@ -65,9 +61,7 @@ fn spank_remote_edf_render(
 }
 */
 
-fn spank_remote_get_edf(
-    spank: &mut SpankHandle,
-) -> Result<raster::EDF, Box<dyn Error>> {
+fn spank_remote_get_edf(spank: &mut SpankHandle) -> Result<raster::EDF, Box<dyn Error>> {
     let key = "SLURM_EDF_EXPANDED";
     let value = spank_getenv(spank, key);
     let edf = raster::get_edf_from_string(value)?;
