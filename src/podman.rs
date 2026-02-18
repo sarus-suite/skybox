@@ -138,7 +138,8 @@ pub(crate) fn podman_start(
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
-    let command = vec!["sleep", "infinity"];
+    //let command = vec!["sleep", "infinity"];
+    let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
 
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
