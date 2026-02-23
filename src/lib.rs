@@ -7,7 +7,7 @@ use std::os::unix::fs::{PermissionsExt, chown};
 //use std::os::raw::c_int;
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
-use nix::unistd::{geteuid, getegid};
+use nix::unistd::{getegid, geteuid};
 
 use slurm_spank::Context;
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
