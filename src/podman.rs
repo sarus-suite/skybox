@@ -20,7 +20,7 @@ fn process_exists(pid: usize) -> bool {
             let state = process.status();
             skybox_log_debug!("process {pid} status is {state}");
             true
-        },
+        }
     };
     ret
 }
@@ -49,7 +49,7 @@ pub(crate) fn podman_pull(
         Some(job) => (job.uid, job.gid),
         None => {
             // Fallback: use current process effective ids
-            use nix::unistd::{geteuid, getegid};
+            use nix::unistd::{getegid, geteuid};
             (geteuid().as_raw(), getegid().as_raw())
         }
     };
@@ -69,7 +69,6 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
-    
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -146,7 +145,7 @@ pub(crate) fn podman_start(
         Some(job) => (job.uid, job.gid),
         None => {
             // Conservative fallback: use current process effective ids
-            use nix::unistd::{geteuid, getegid};
+            use nix::unistd::{getegid, geteuid};
             (geteuid().as_raw(), getegid().as_raw())
         }
     };
@@ -155,7 +154,7 @@ pub(crate) fn podman_start(
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
     //let command = vec!["sleep", "infinity"];
-    let command = vec!["sh","-c","kill -STOP $$ ; exit 0"];
+    let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
 
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
@@ -235,9 +234,9 @@ pub(crate) fn podman_stop(
     kill.wait()?;
 
     if process_exists(pid) {
-      skybox_log_debug!("process {pid} is still there, waiting one more second.");
-      let pause = std::time::Duration::from_secs(1);
-      std::thread::sleep(pause);
+        skybox_log_debug!("process {pid} is still there, waiting one more second.");
+        let pause = std::time::Duration::from_secs(1);
+        std::thread::sleep(pause);
     }
 
     if process_exists(pid) {
