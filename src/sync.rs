@@ -231,6 +231,7 @@ pub(crate) fn sync_podman_start_wait(
     max_attempts = 5 * 600;
 
     loop {
+
         if is_process_stopped(pid)? {
             break;
         } else {
@@ -254,6 +255,7 @@ pub(crate) fn sync_podman_start_wait(
             std::thread::sleep(pause);
         }
     }
+
 
     let mut newrun = ssb.run.clone().unwrap();
     newrun.pid = pid;

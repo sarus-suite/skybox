@@ -20,7 +20,7 @@ fn process_exists(pid: usize) -> bool {
             let state = process.status();
             skybox_log_debug!("process {pid} status is {state}");
             true
-        }
+        },
     };
     ret
 }
@@ -154,7 +154,7 @@ pub(crate) fn podman_start(
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
     //let command = vec!["sleep", "infinity"];
-    let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
+    let command = vec!["sh","-c","kill -STOP $$ ; exit 0"];
 
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
@@ -234,9 +234,9 @@ pub(crate) fn podman_stop(
     kill.wait()?;
 
     if process_exists(pid) {
-        skybox_log_debug!("process {pid} is still there, waiting one more second.");
-        let pause = std::time::Duration::from_secs(1);
-        std::thread::sleep(pause);
+      skybox_log_debug!("process {pid} is still there, waiting one more second.");
+      let pause = std::time::Duration::from_secs(1);
+      std::thread::sleep(pause);
     }
 
     if process_exists(pid) {
