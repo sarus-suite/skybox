@@ -81,7 +81,7 @@ struct Job {
 #[derive(Clone, Serialize, Default)]
 struct Run {
     name: String,
-    pid: u64,
+    pid: usize,
     podman_tmp_path: String,
     syncfile_path: String,
 }
@@ -236,7 +236,7 @@ pub(crate) fn run_set_info(
 
     let pid = match podman_get_pid_from_file(ssb) {
         Ok(s) => s,
-        Err(_) => u64::MAX,
+        Err(_) => usize::MAX,
     };
 
     ssb.run = Some(Run {
