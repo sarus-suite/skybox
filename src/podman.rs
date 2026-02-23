@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;
+use sysinfo::{Pid, System};
 
 use slurm_spank::{SpankHandle, spank_log_user};
 
@@ -8,6 +9,21 @@ use sarus_suite_podman_driver::loggable::{self as pmd, ExecutedCommand};
 use sarus_suite_podman_driver::{ContainerCtx, PodmanCtx};
 
 use crate::{SpankSkyBox, plugin_err, skybox_log_debug};
+
+fn process_exists(pid: usize) -> bool {
+    let p = Pid::from(pid);
+
+    let s = System::new_all();
+    let ret = match s.process(p) {
+        None => false,
+        Some(process) => {
+            let state = process.status();
+            skybox_log_debug!("process {pid} status is {state}");
+            true
+        },
+    };
+    ret
+}
 
 pub(crate) fn podman_pull(
     ssb: &mut SpankSkyBox,
@@ -139,7 +155,7 @@ pub(crate) fn podman_start(
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
     //let command = vec!["sleep", "infinity"];
-    let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
+    let command = vec!["sh","-c","kill -STOP $$ ; exit 0"];
 
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
@@ -167,7 +183,7 @@ pub(crate) fn podman_start(
     return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
 
-pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box<dyn Error>> {
+pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<usize, Box<dyn Error>> {
     let run = match &ssb.run {
         Some(o) => o,
         None => {
@@ -185,7 +201,7 @@ pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<u64, Box
                 return Err(err_msg.into());
             }
         };
-        let pid: u64 = match strpid.parse() {
+        let pid: usize = match strpid.parse() {
             Ok(p) => p,
             Err(_) => {
                 let err_msg = format!("cannot convert {strpid} to number");
@@ -212,10 +228,25 @@ pub(crate) fn podman_stop(
 
     let pid = run.pid;
 
+    skybox_log_debug!("stopping container, process {pid}");
     let mut kill = std::process::Command::new("kill")
-        .args(["-s", "SIGTERM", &pid.to_string()])
+        .args(["-s", "SIGCONT", &pid.to_string()])
         .spawn()?;
     kill.wait()?;
+
+    if process_exists(pid) {
+      skybox_log_debug!("process {pid} is still there, waiting one more second.");
+      let pause = std::time::Duration::from_secs(1);
+      std::thread::sleep(pause);
+    }
+
+    if process_exists(pid) {
+        skybox_log_debug!("process {pid} is still there, terminating it.");
+        let mut kill = std::process::Command::new("kill")
+            .args(["-s", "SIGTERM", &pid.to_string()])
+            .spawn()?;
+        kill.wait()?;
+    }
 
     Ok(())
 }
