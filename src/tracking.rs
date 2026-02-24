@@ -92,6 +92,7 @@ pub(crate) fn track_slurmstepd_data_collect(
         command.push_str(i);
     }
 
+    let nnodes = spank_getenv(spank, "SLURM_NNODES").parse::<usize>()?;
     let nodelist = spank_getenv(spank, "SLURM_NODELIST");
     let user = spank_getenv(spank, "SLURM_JOB_USER");
 
@@ -103,7 +104,7 @@ pub(crate) fn track_slurmstepd_data_collect(
         environment: environment,
         image: edf.image.clone(),
         jobid: jobid,
-        nnodes: 0,
+        nnodes: nnodes,
         nodelist: nodelist,
         stepid: stepid,
         user: user,
