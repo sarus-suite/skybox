@@ -5,7 +5,7 @@ use slurm_spank::SpankHandle;
 use crate::args::*;
 use crate::config::*;
 use crate::edf::*;
-use crate::{SpankSkyBox, plugin_err, skybox_log_error};
+use crate::{SpankSkyBox, plugin_err, skybox_log_error, skybox_log_user};
 use raster::*;
 
 fn srun_load_config(
@@ -84,7 +84,14 @@ pub(crate) fn srun_init_post_opt(
         return Ok(());
     }
 
-    let _ = load_edf(plugin, spank)?;
+    match load_edf(plugin, spank) {
+        Ok(o) => (),
+        Err(e) => {
+            skybox_log_user!("{e}");
+            return Err(e);
+        }
+    }
+
     update_config_by_user(&mut plugin.config, plugin.edf.clone().unwrap())?;
     let _ = set_remaining_default_args(plugin)?;
 
