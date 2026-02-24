@@ -9,6 +9,7 @@ use slurm_spank::SpankHandle;
 use crate::{
     SpankSkyBox, get_local_task_id, plugin_err, plugin_string, podman::podman_pull,
     podman::podman_start, podman::podman_stop, skybox_log_debug, skybox_log_error,
+    tracking::track_usage,
 };
 
 pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
@@ -362,5 +363,15 @@ pub(crate) fn sync_cleanup_fs_shared(
         }
     }
 
+    Ok(())
+}
+
+pub(crate) fn sync_tracking(
+    ssb: &mut SpankSkyBox,
+    spank: &mut SpankHandle,
+) -> Result<(), Box<dyn Error>> {
+    if is_local_task_0(ssb, spank) {
+        track_usage(ssb, spank)?;
+    }
     Ok(())
 }
