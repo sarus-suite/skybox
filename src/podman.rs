@@ -68,8 +68,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone());
-    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid))
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid));
     
 
     let local_ctx = PodmanCtx {
@@ -83,8 +83,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone());
-    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid))
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid));
 
 
     let migrate_ctx = PodmanCtx {
@@ -98,8 +98,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone());
-    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid))
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid));
 
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
@@ -181,8 +181,8 @@ pub(crate) fn podman_start(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone());
-    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid))
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", format!("/tmp/parallax-{}/mount_program.log", uid));
 
     skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", uid, gid);
 
