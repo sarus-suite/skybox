@@ -30,6 +30,7 @@ pub mod slurmd;
 pub mod slurmstepd;
 pub mod srun;
 pub mod sync;
+pub mod tracking;
 
 pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
