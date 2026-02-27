@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
+use sysinfo::{Pid, ProcessStatus, System};
 
 use slurm_spank::SpankHandle;
 
@@ -53,6 +54,22 @@ pub(crate) fn is_node_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool
     }
 
     return false;
+}
+
+fn is_process_stopped(pid: usize) -> Result<bool, Box<dyn Error>> {
+    let p = Pid::from(pid);
+
+    let s = System::new_all();
+    let Some(process) = s.process(p) else {
+        return Err(format!("cannot find process {pid}").into());
+    };
+    let state = process.status();
+
+    if state == ProcessStatus::Stop {
+        return Ok(true);
+    } else {
+        return Ok(false);
+    }
 }
 
 pub(crate) fn sync_podman_pull(
@@ -173,6 +190,11 @@ pub(crate) fn sync_podman_start_wait(
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
     let strpid;
 
+    let mut attempts: u32 = 0;
+    let pause = std::time::Duration::from_millis(100);
+    // Wait max 1 minute for pidfile
+    let mut max_attempts: u32 = 600;
+
     loop {
         let result = std::fs::read_to_string(&pidfile);
         match result {
@@ -180,16 +202,58 @@ pub(crate) fn sync_podman_start_wait(
                 strpid = s;
                 break;
             }
-            Err(e) => {
-                skybox_log_debug!("couldn't read pidfile yet: {e}, wait 1 sec and retry");
+            Err(_) => {
+                attempts += 1;
 
-                let pause = std::time::Duration::new(1, 0);
+                // Fail with error after max attempts
+                if attempts >= max_attempts {
+                    let msg = format!("failed to read container pidfile {pidfile}.");
+                    skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
+                    return plugin_err(&msg);
+                }
+
+                // Log first and every 50 retries to limit log spam
+                if attempts == 1 || attempts % 50 == 0 {
+                    skybox_log_debug!(
+                        "task {} - cannot read container pidfile {pidfile} yet, waiting and retrying",
+                        get_local_task_id(ssb)
+                    );
+                }
+
                 std::thread::sleep(pause);
             }
         }
     }
 
-    let pid: u64 = strpid.parse()?;
+    let pid: usize = strpid.parse()?;
+    attempts = 0;
+    // Wait max 5 minutes for entrypoint
+    max_attempts = 5 * 600;
+
+    loop {
+        if is_process_stopped(pid)? {
+            break;
+        } else {
+            attempts += 1;
+
+            // Fail with error after max attempts
+            if attempts >= max_attempts {
+                let msg = format!("container entrypoint process {strpid} did not complete.");
+                skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
+                return plugin_err(&msg);
+            }
+
+            // Log first and every 50 retries to limit log spam
+            if attempts == 1 || attempts % 50 == 0 {
+                skybox_log_debug!(
+                    "task {} - container entrypoint process {strpid} hasn't completed yet, waiting and retrying",
+                    get_local_task_id(ssb)
+                );
+            }
+
+            std::thread::sleep(pause);
+        }
+    }
 
     let mut newrun = ssb.run.clone().unwrap();
     newrun.pid = pid;

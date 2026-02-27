@@ -127,6 +127,7 @@ pub(crate) fn slurmstepd_task_init(
     container_wait_cwd(plugin, spank)?;
     container_import_env(plugin, spank)?;
     container_set_workdir(plugin, spank)?;
+    //container_wait_entrypoint_handover(plugin, spank)?;
 
     //skybox_log_context(plugin);
 
