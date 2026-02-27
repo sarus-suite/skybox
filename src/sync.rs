@@ -370,7 +370,7 @@ pub(crate) fn sync_tracking(
     ssb: &mut SpankSkyBox,
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
-    if is_local_task_0(ssb, spank) {
+    if is_global_task_0(ssb, spank) {
         track_usage(ssb, spank)?;
     }
     Ok(())
