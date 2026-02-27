@@ -87,7 +87,6 @@ pub(crate) fn container_join(
     Ok(())
 }
 
-
 pub(crate) fn container_wait_cwd(
     ssb: &mut SpankSkyBox,
     _spank: &mut SpankHandle,
@@ -145,7 +144,6 @@ so the host cannot access /proc/<pid>/cwd for the container process."
 
     Ok(())
 }
-
 
 pub(crate) fn container_set_workdir(
     ssb: &mut SpankSkyBox,
