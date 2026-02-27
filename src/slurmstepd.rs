@@ -121,6 +121,7 @@ pub(crate) fn slurmstepd_task_init(
     //skybox_log_verbose!("TASK_INIT");
     let _ = task_set_info(plugin, spank)?;
 
+    sync_tracking(plugin, spank)?;
     sync_podman_pull(plugin, spank)?;
     sync_podman_start(plugin, spank)?;
     container_join(plugin, spank)?;

@@ -114,6 +114,11 @@ pub(crate) fn setup_config(
         return plugin_err("cannot find podman_tmp_path");
     }
 
+    if config.tracking_tool == "" {
+        plugin.config.tracking_enabled = false;
+        return plugin_err("cannot find tracking_tool");
+    }
+
     Ok(())
 }
 
