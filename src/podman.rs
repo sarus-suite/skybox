@@ -104,7 +104,7 @@ pub(crate) fn podman_pull(
         pmd_pull(&edf.image, &local_ctx);
 
         if !pmd_image_exists(&edf.image, &local_ctx) {
-            return plugin_err("couldn't find image locally after pull");
+            return plugin_err("podman pull failed, cannot find image in local graphroot");
         }
 
         skybox_log_debug!("migrating image \"{}\" to shared imagestore", edf.image);
