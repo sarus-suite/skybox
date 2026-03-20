@@ -7,7 +7,7 @@ use std::os::unix::fs::{PermissionsExt, chown};
 //use std::os::raw::c_int;
 use std::path::Path;
 //use std::sync::{Arc, Mutex};
-use nix::unistd::{geteuid, getegid};
+use nix::unistd::{getegid, geteuid};
 
 use slurm_spank::Context;
 use slurm_spank::{Plugin, SLURM_VERSION_NUMBER, SPANK_PLUGIN, SpankHandle};
@@ -30,6 +30,7 @@ pub mod slurmd;
 pub mod slurmstepd;
 pub mod srun;
 pub mod sync;
+pub mod tracking;
 
 pub(crate) const SLURM_BATCH_SCRIPT: u32 = 0xfffffffb;
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -81,7 +82,7 @@ struct Job {
 #[derive(Clone, Serialize, Default)]
 struct Run {
     name: String,
-    pid: u64,
+    pid: usize,
     podman_tmp_path: String,
     syncfile_path: String,
 }
@@ -236,7 +237,7 @@ pub(crate) fn run_set_info(
 
     let pid = match podman_get_pid_from_file(ssb) {
         Ok(s) => s,
-        Err(_) => u64::MAX,
+        Err(_) => usize::MAX,
     };
 
     ssb.run = Some(Run {
