@@ -57,6 +57,15 @@ pub(crate) fn podman_pull(
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
+    let squashfuse_cmd = edf.annotations
+        .get("com.sarus.parallax_mount_program.squashfuse_cmd")
+        .cloned()
+        .unwrap_or_else(|| config.parallax_mp_squashfuse_cmd.clone());
+    let parallax_logfile = edf.annotations
+        .get("com.sarus.parallax_mount_program.logfile")
+        .cloned()
+        .unwrap_or_else(|| format!("/tmp/parallax-{}/mount_program.log", uid));
+
     let ro_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
         module: None,
@@ -68,14 +77,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env(
-        "PARALLAX_MP_SQUASHFUSE_CMD",
-        config.parallax_mp_squashfuse_cmd.clone(),
-    )
-    .with_env(
-        "PARALLAX_MP_LOGFILE",
-        format!("/tmp/parallax-{}/mount_program.log", uid),
-    );
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", parallax_logfile.clone());
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -88,14 +91,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env(
-        "PARALLAX_MP_SQUASHFUSE_CMD",
-        config.parallax_mp_squashfuse_cmd.clone(),
-    )
-    .with_env(
-        "PARALLAX_MP_LOGFILE",
-        format!("/tmp/parallax-{}/mount_program.log", uid),
-    );
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", parallax_logfile.clone());
 
     let migrate_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -108,14 +105,8 @@ pub(crate) fn podman_pull(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env(
-        "PARALLAX_MP_SQUASHFUSE_CMD",
-        config.parallax_mp_squashfuse_cmd.clone(),
-    )
-    .with_env(
-        "PARALLAX_MP_LOGFILE",
-        format!("/tmp/parallax-{}/mount_program.log", uid),
-    );
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", parallax_logfile.clone());
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
         skybox_log_debug!(
@@ -177,6 +168,18 @@ pub(crate) fn podman_start(
     //let command = vec!["sleep", "infinity"];
     let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
 
+
+    let squashfuse_cmd = edf.annotations
+        .get("com.sarus.parallax_mount_program.squashfuse_cmd")
+        .cloned()
+        .unwrap_or_else(|| config.parallax_mp_squashfuse_cmd.clone());
+
+    let parallax_logfile = edf.annotations
+        .get("com.sarus.parallax_mount_program.logfile")
+        .cloned()
+        .unwrap_or_else(|| format!("/tmp/parallax-{}/mount_program.log", uid));
+
+
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
         interactive: false,
@@ -196,14 +199,8 @@ pub(crate) fn podman_start(
     }
     .with_env("PARALLAX_MP_UID", uid.to_string())
     .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env(
-        "PARALLAX_MP_SQUASHFUSE_CMD",
-        config.parallax_mp_squashfuse_cmd.clone(),
-    )
-    .with_env(
-        "PARALLAX_MP_LOGFILE",
-        format!("/tmp/parallax-{}/mount_program.log", uid),
-    );
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", squashfuse_cmd.clone())
+    .with_env("PARALLAX_MP_LOGFILE", parallax_logfile.clone());
 
     skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", uid, gid);
 
