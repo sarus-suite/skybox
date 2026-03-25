@@ -174,16 +174,13 @@ pub(crate) fn podman_start(
     let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
 
 
-    let squashfuse_cmd = edf.annotations
-        .get("com.sarus.parallax_mount_program.squashfuse_cmd")
-        .cloned()
-        .unwrap_or_else(|| config.parallax_mp_squashfuse_cmd.clone());
-
-    let parallax_logfile = edf.annotations
-        .get("com.sarus.parallax_mount_program.logfile")
-        .cloned()
-        .unwrap_or_else(|| format!("/tmp/parallax-{}/mount_program.log", uid));
-
+    // Lift config or annotation from config structure
+    let squashfuse_cmd = config.parallax_mp_squashfuse_cmd.clone();
+    let parallax_logfile = if config.parallax_mp_logfile.is_empty() {
+        format!("/tmp/parallax-{}/mount_program.log", uid)
+    } else {
+        config.parallax_mp_logfile.clone()
+    };
 
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
