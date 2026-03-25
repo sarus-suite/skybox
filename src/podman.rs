@@ -66,6 +66,12 @@ pub(crate) fn podman_pull(
         .cloned()
         .unwrap_or_else(|| format!("/tmp/parallax-{}/mount_program.log", uid));
 
+    skybox_log_debug!(
+        "parallax mount program config for pull: squashfuse_cmd='{}' logfile='{}'",
+        squashfuse_cmd,
+        parallax_logfile
+    );
+
     let ro_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
         module: None,
