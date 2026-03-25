@@ -57,20 +57,13 @@ pub(crate) fn podman_pull(
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
-    skybox_log_debug!("EDF annotations map: {:?}", edf.annotations);
-    skybox_log_debug!(
-        "explicit logfile annotation: {:?}",
-        edf.annotations.get("com.sarus.parallax_mount_program.logfile")
-    );
-
-    let squashfuse_cmd = edf.annotations
-        .get("com.sarus.parallax_mount_program.squashfuse_cmd")
-        .cloned()
-        .unwrap_or_else(|| config.parallax_mp_squashfuse_cmd.clone());
-    let parallax_logfile = edf.annotations
-        .get("com.sarus.parallax_mount_program.logfile")
-        .cloned()
-        .unwrap_or_else(|| format!("/tmp/parallax-{}/mount_program.log", uid));
+    // Lift config or annotation from config structure
+    let squashfuse_cmd = config.parallax_mp_squashfuse_cmd.clone();
+    let parallax_logfile = if config.parallax_mp_logfile.is_empty() {
+        format!("/tmp/parallax-{}/mount_program.log", uid)
+    } else {
+        config.parallax_mp_logfile.clone()
+    };
 
     skybox_log_debug!(
         "parallax mount program config for pull: squashfuse_cmd='{}' logfile='{}'",
