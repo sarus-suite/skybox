@@ -36,7 +36,13 @@ pub(crate) fn load_edf(
 }
 
 fn local_edf_render(path: String) -> Result<raster::EDF, Box<dyn Error>> {
+    skybox_log_debug!("local_edf_render requested path='{}'", path);
+
     let edf = raster::render(path)?;
+
+    skybox_log_debug!("local_edf_render rendered image='{}'", edf.image);
+    skybox_log_debug!("local_edf_render annotations={:?}", edf.annotations);
+
     define_edf_expanded_envvar(&edf)?;
     Ok(edf)
 }
