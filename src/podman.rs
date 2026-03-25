@@ -57,6 +57,12 @@ pub(crate) fn podman_pull(
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
+    skybox_log_debug!("EDF annotations map: {:?}", edf.annotations);
+    skybox_log_debug!(
+        "explicit logfile annotation: {:?}",
+        edf.annotations.get("com.sarus.parallax_mount_program.logfile")
+    );
+
     let squashfuse_cmd = edf.annotations
         .get("com.sarus.parallax_mount_program.squashfuse_cmd")
         .cloned()
