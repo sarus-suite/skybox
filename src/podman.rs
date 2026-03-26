@@ -58,7 +58,7 @@ pub(crate) fn podman_pull(
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
     // Lift config or annotation from config structure
-    let squashfuse_cmd = config.parallax_mp_squashfuse_cmd.clone();
+    let squashfuse_cmd = config.parallax_mp_squashfuse_path.clone();
     let parallax_logfile = if config.parallax_mp_logfile.is_empty() {
         format!("/tmp/parallax-{}/mount_program.log", uid)
     } else {
@@ -66,7 +66,7 @@ pub(crate) fn podman_pull(
     };
 
     skybox_log_debug!(
-        "parallax mount program config for pull: squashfuse_cmd='{}' logfile='{}'",
+        "parallax mount program config for pull: squashfuse_path='{}' logfile='{}'",
         squashfuse_cmd,
         parallax_logfile
     );
@@ -175,7 +175,7 @@ pub(crate) fn podman_start(
 
 
     // Lift config or annotation from config structure
-    let squashfuse_cmd = config.parallax_mp_squashfuse_cmd.clone();
+    let squashfuse_cmd = config.parallax_mp_squashfuse_path.clone();
     let parallax_logfile = if config.parallax_mp_logfile.is_empty() {
         format!("/tmp/parallax-{}/mount_program.log", uid)
     } else {
