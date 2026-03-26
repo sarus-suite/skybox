@@ -60,7 +60,7 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
     .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
-    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -74,7 +74,7 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
     .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
-    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
 
     let migrate_ctx = PodmanCtx {
@@ -89,7 +89,7 @@ pub(crate) fn podman_pull(
     .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
     .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
-    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
         skybox_log_debug!(
@@ -162,7 +162,7 @@ pub(crate) fn podman_start(
     .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
     .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
     .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
-    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
     return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
