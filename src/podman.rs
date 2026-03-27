@@ -45,15 +45,6 @@ pub(crate) fn podman_pull(
 
     let config = &ssb.config;
 
-    let (uid, gid) = match ssb.job.as_ref() {
-        Some(job) => (job.uid, job.gid),
-        None => {
-            // Fallback: use current process effective ids
-            use nix::unistd::{getegid, geteuid};
-            (geteuid().as_raw(), getegid().as_raw())
-        }
-    };
-
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
 
@@ -66,9 +57,10 @@ pub(crate) fn podman_pull(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", uid.to_string())
-    .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
+    .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
+    .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
     let local_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -79,9 +71,11 @@ pub(crate) fn podman_pull(
         ro_store: None,
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", uid.to_string())
-    .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
+    .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
+    .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
+
 
     let migrate_ctx = PodmanCtx {
         podman_path: PathBuf::from(&config.podman_path),
@@ -92,9 +86,10 @@ pub(crate) fn podman_pull(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", uid.to_string())
-    .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
+    .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
+    .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
     if !pmd_image_exists(&edf.image, &ro_ctx) {
         skybox_log_debug!(
@@ -141,15 +136,6 @@ pub(crate) fn podman_start(
 
     let config = &ssb.config;
 
-    let (uid, gid) = match ssb.job.as_ref() {
-        Some(job) => (job.uid, job.gid),
-        None => {
-            // Conservative fallback: use current process effective ids
-            use nix::unistd::{getegid, geteuid};
-            (geteuid().as_raw(), getegid().as_raw())
-        }
-    };
-
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
     let pidfile = format!("{}/pidfile", run.podman_tmp_path);
@@ -173,11 +159,12 @@ pub(crate) fn podman_start(
         ro_store: Some(PathBuf::from(&config.parallax_imagestore)),
         podman_env: None,
     }
-    .with_env("PARALLAX_MP_UID", uid.to_string())
-    .with_env("PARALLAX_MP_GID", gid.to_string())
-    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", "/usr/bin/squashfuse_ll");
+    .with_env("PARALLAX_MP_UID", config.parallax_mp_uid.to_string())
+    .with_env("PARALLAX_MP_GID", config.parallax_mp_gid.to_string())
+    .with_env("PARALLAX_MP_SQUASHFUSE_CMD", config.parallax_mp_squashfuse_path.clone())
+    .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
-    skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", uid, gid);
+    skybox_log_debug!("mount env: PARALLAX_MP_UID={} PARALLAX_MP_GID={}", config.parallax_mp_uid.to_string(), config.parallax_mp_gid.to_string());
 
     return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
