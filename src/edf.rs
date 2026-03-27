@@ -21,22 +21,34 @@ pub(crate) fn load_edf(
 
     match spank.context()? {
         Context::Local | Context::Allocator => {
+            skybox_log_debug!("load_edf taking local_edf_render branch");
             edf = local_edf_render(edf_name)?;
         }
         Context::Remote => {
+            skybox_log_debug!("load_edf taking spank_remote_get_edf branch");
             edf = spank_remote_get_edf(spank)?;
         }
         _ => {
+            skybox_log_debug!("load_edf: unsupported context, returning early");
             return Ok(());
         }
     }
+
+    skybox_log_debug!("load_edf final image='{}'", edf.image);
+    skybox_log_debug!("load_edf final annotations={:?}", edf.annotations);
 
     ssb.edf = Some(edf);
     Ok(())
 }
 
 fn local_edf_render(path: String) -> Result<raster::EDF, Box<dyn Error>> {
+    skybox_log_debug!("local_edf_render requested path='{}'", path);
+
     let edf = raster::render(path)?;
+
+    skybox_log_debug!("local_edf_render rendered image='{}'", edf.image);
+    skybox_log_debug!("local_edf_render annotations={:?}", edf.annotations);
+
     define_edf_expanded_envvar(&edf)?;
     Ok(edf)
 }
