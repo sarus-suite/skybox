@@ -12,12 +12,12 @@ function list_packages() {
 function list_old_packages() {
   local OS_DIR="${BASE_DIR}/.github/release/${BUILD_OS_NAME}"
   local OS_VERSION_DIR="${OS_DIR}/${BUILD_OS_VERSION}"
-  local SUFFIX=".old_packages"
+  local SUFFIX="old_packages"
 
   (
     if [ -d "${OS_VERSION_DIR}/" ]
     then
-      for file in $(ls ${OS_VERSION_DIR}/*.${SUFFIX} 2>/dev/null)
+      for file in $(ls "${OS_VERSION_DIR}/*.${SUFFIX}" 2>/dev/null)
       do
         cat ${file}
       done
