@@ -9,6 +9,7 @@ use sarus_suite_podman_driver::loggable::{self as pmd, ExecutedCommand};
 use sarus_suite_podman_driver::{ContainerCtx, PodmanCtx};
 
 use crate::{SpankSkyBox, plugin_err, skybox_log_debug};
+use crate::config::setup_imagestore;
 
 fn process_exists(pid: usize) -> bool {
     let p = Pid::from(pid);
@@ -44,6 +45,7 @@ pub(crate) fn podman_pull(
     };
 
     let config = &ssb.config;
+    setup_imagestore(config)?;
 
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);

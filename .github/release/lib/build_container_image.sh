@@ -9,6 +9,30 @@ function list_packages() {
 
 }
 
+function list_old_packages() {
+  local OS_DIR="${BASE_DIR}/.github/release/${BUILD_OS_NAME}"
+  local OS_VERSION_DIR="${OS_DIR}/${BUILD_OS_VERSION}"
+  local SUFFIX="old_packages"
+
+  (
+    if [ -d "${OS_VERSION_DIR}" ]
+    then
+      for file in $(ls ${OS_VERSION_DIR}/*.${SUFFIX} 2>/dev/null)
+      do
+        cat ${file}
+      done
+    fi
+
+    if [ -d "${OS_DIR}" ]
+    then
+      for file in $(ls ${OS_DIR}/*.${SUFFIX} 2>/dev/null)
+      do
+        cat ${file}
+      done
+    fi
+  ) | sort -u | paste -s -d " " | xargs
+}
+
 function add_containerfile_excerpts() {
 
   for file in $(ls ${BASE_DIR}/.github/release/${BUILD_OS_NAME}/*.Containerfile 2>/dev/null)
@@ -28,6 +52,7 @@ function build_container_image_opensuse() {
   [ ! -d ${SRC_DIR} ] && mkdir -p ${SRC_DIR}
   
   BASE_IMAGE_NAME="${BUILD_OS_NAME}/leap:${BUILD_OS_VERSION}"
+  OLD_PACKAGES=$(list_old_packages)
   PACKAGES=$(list_packages)
 
   #Add additional files
@@ -38,8 +63,18 @@ function build_container_image_opensuse() {
 FROM ${BASE_IMAGE_NAME} AS base
 
 # Zypper Install
-RUN zypper --non-interactive refresh && \
-  zypper --non-interactive update -y && \
+RUN zypper --non-interactive refresh && \\
+  zypper --non-interactive update -y && \\
+EOF
+
+  if [ -n "$OLD_PACKAGES" ]
+  then
+    cat <<EOF >>Containerfile
+  zypper --non-interactive install -y --oldpackage ${OLD_PACKAGES} && \\
+EOF
+  fi
+
+  cat <<EOF >>Containerfile
   zypper --non-interactive install -y ${PACKAGES} 
 
 EOF
