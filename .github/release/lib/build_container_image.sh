@@ -30,7 +30,7 @@ function list_old_packages() {
         cat ${file}
       done
     fi
-  ) | sort -u | paste -s -d " "
+  ) | sort -u | paste -s -d " " | xargs
 }
 
 function add_containerfile_excerpts() {
