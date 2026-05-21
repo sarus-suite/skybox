@@ -1,6 +1,6 @@
 [package]
 name = "skybox"
-version = "0.0.0"
+version = "0.1.1-gcaf6e91"
 edition = "2024"
 
 [lib]

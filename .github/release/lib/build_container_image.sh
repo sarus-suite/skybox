@@ -15,15 +15,15 @@ function list_old_packages() {
   local SUFFIX="old_packages"
 
   (
-    if [ -d "${OS_VERSION_DIR}/" ]
+    if [ -d "${OS_VERSION_DIR}" ]
     then
-      for file in $(ls "${OS_VERSION_DIR}/*.${SUFFIX}" 2>/dev/null)
+      for file in $(ls ${OS_VERSION_DIR}/*.${SUFFIX} 2>/dev/null)
       do
         cat ${file}
       done
     fi
 
-    if [ -d "${OS_DIR}/" ]
+    if [ -d "${OS_DIR}" ]
     then
       for file in $(ls ${OS_DIR}/*.${SUFFIX} 2>/dev/null)
       do
