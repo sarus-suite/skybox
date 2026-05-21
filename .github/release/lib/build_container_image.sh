@@ -63,14 +63,14 @@ function build_container_image_opensuse() {
 FROM ${BASE_IMAGE_NAME} AS base
 
 # Zypper Install
-RUN zypper --non-interactive refresh && \
-  zypper --non-interactive update -y && \
+RUN zypper --non-interactive refresh && \\
+  zypper --non-interactive update -y && \\
 EOF
 
   if [ -n "$OLD_PACKAGES" ]
   then
     cat <<EOF >>Containerfile
-  zypper --non-interactive install -y --oldpackage ${OLD_PACKAGES} && \
+  zypper --non-interactive install -y --oldpackage ${OLD_PACKAGES} && \\
 EOF
   fi
 
