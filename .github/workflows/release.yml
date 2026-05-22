@@ -15,7 +15,7 @@ jobs:
         arch: [ x86_64, aarch64 ]
     runs-on: ${{ matrix.arch == 'x86_64' && 'chesim-zinal-login' || matrix.arch == 'aarch64' && 'chesim-starlex-login' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build
         env:

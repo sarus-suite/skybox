@@ -2,12 +2,13 @@ use std::error::Error;
 use std::path::Path;
 use std::path::PathBuf;
 
-use slurm_spank::SpankHandle;
+use slurm_spank::{SpankHandle, spank_log_user, spank_log_error};
 
 use raster::config::remove_sarus_annotations;
+use raster::hook_run;
 use raster::*;
 
-use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error};
+use crate::{SpankSkyBox, get_job_env, plugin_err, skybox_log_error, skybox_log_debug};
 
 pub(crate) fn resolve_config_path(spank: &mut SpankHandle) -> Option<PathBuf> {
     let plugin_argv = spank.plugin_argv();
@@ -69,6 +70,23 @@ pub(crate) fn load_config(
 }
 */
 
+pub(crate) fn setup_imagestore(config: &Config) -> Result<(), Box<dyn Error>> {
+    let imagestore = &config.parallax_imagestore;
+
+    match hook_run(config, "parallax_imagestore_create", vec![imagestore])? {
+        Some(ec) => log_hook_ec(ec, "parallax_imagestore_create hook"),
+        None => {},
+    }
+
+    if !Path::new(imagestore).exists() {
+        // If imagestore does not exist, it tries to create it
+        if let Err(e) = std::fs::create_dir_all(imagestore) {
+            return plugin_err(&format!("cannot create parallax_imagestore: {e}"));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn setup_config(
     config: &Config,
     plugin: &mut SpankSkyBox,
@@ -78,15 +96,6 @@ pub(crate) fn setup_config(
     if config.parallax_imagestore == "" {
         plugin.config.skybox_enabled = false;
         return plugin_err("cannot find parallax_imagestore");
-    } else {
-        let store = &config.parallax_imagestore;
-        if !Path::new(store).exists() {
-            // If imagestore does not exist, it tries to create it
-            if let Err(e) = std::fs::create_dir_all(store) {
-                plugin.config.skybox_enabled = false;
-                return plugin_err(&format!("cannot create parallax_imagestore: {e}"));
-            }
-        }
     }
 
     if config.parallax_mount_program == "" {
@@ -164,4 +173,50 @@ pub(crate) fn render_user_job_config(
     }
 
     Ok(())
+}
+
+pub(crate) fn log_hook_ec(ec: ExecutedCommand, prefix: &str) {
+
+    let rc = match ec.output.status.code() {
+        Some(ok) => format!("{ok}"),
+        None => {
+            skybox_log_debug!("{prefix} exited by signal");
+            String::from("UNKNOWN")
+        }
+    };
+
+    let mut stdout = match String::from_utf8(ec.output.stdout) {
+        Ok(ok) => ok,
+        Err(_) => String::from(""),
+    };
+    if stdout.ends_with("\n") {
+        stdout.pop();
+    };
+
+    let mut stderr = match String::from_utf8(ec.output.stderr) {
+        Ok(ok) => ok,
+        Err(_) => String::from(""),
+    };
+    if stderr.ends_with("\n") {
+        stderr.pop();
+    };
+
+    skybox_log_debug!("CMD: {}", ec.command);
+    skybox_log_debug!("{prefix} exit code: {}", rc);
+
+    if stdout != "" {
+        let lines = stdout.split("\n");
+        for line in lines {
+            skybox_log_debug!("{prefix} stdout: {}", line);
+            spank_log_user!("{}", line);
+        }
+    }
+
+    if stderr != "" {
+        let lines = stderr.split("\n");
+        for line in lines {
+            skybox_log_debug!("{prefix} stderr: {}", line);
+            spank_log_error!("{}", line);
+        }
+    }
 }
