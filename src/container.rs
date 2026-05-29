@@ -226,6 +226,17 @@ pub(crate) fn container_import_env(
     for (key, value) in edf_env.iter() {
         if value == "" {
             unset_keys.push(key);
+            continue;
+        }
+        let overwrite = true;
+
+        match spank.setenv(key, value, overwrite) {
+            Ok(ok) => ok,
+            Err(SpankError::EnvExists(_)) => (),
+            Err(e) => {
+                skybox_log_error!("couldn't set env {key}={value}: {e}");
+                return Err(Box::new(e));
+            }
         }
     }
 
