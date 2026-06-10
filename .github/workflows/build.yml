@@ -2,11 +2,12 @@ name: build
 
 on:
   workflow_dispatch:            # run manually from the Actions tab
-  inputs:
-    ref:
-      description: "Git ref (branch, tag, or SHA) to build"
-      required: false
-      default: ""             # leave empty to use the selected branch in the UI
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or SHA) to build"
+        required: false
+        default: ""             # leave empty to use the selected branch in the UI
+
 permissions:
   contents: write
   packages: write
@@ -32,11 +33,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: 
       image: ${{ env.REPO }}:${{ matrix.slurm_version }}-${{ matrix.build_os }}
+      volumes:
+        - .:/tmp
     credentials:
       username: ${{ github.actor }}
       password: ${{ secrets.github_token }}
-    volumes:
-      - .:/tmp
 
     steps:
       - uses: actions/checkout@v6
