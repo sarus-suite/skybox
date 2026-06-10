@@ -146,7 +146,7 @@ function check_build_container_image() {
 
   # check image existence
   export BUILD_IMAGE_NAME="${IMAGE_NAME_PREFIX}-slurm-${SLURM_VERSION}-${BUILD_OS}-${ARCH}"
-  if podman image exists ${BUILD_IMAGE_NAME}
+  if [ "${BUILD_IMAGE_FORCE}" != "yes" ] && podman image exists ${BUILD_IMAGE_NAME}
   then
     return 0	  
   else
