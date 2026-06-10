@@ -31,8 +31,9 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     container: 
-      image: $REPO:${{ matrix.slurm_version }}-${{ matrix.build_os }}
+      image: ghcr.io/${{ github.repository.owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}
       credentials:
+        registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
       volumes:
