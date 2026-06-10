@@ -58,11 +58,12 @@ jobs:
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
-            ls -ald .
-            ls -al .
-            id
-            getent passwd
-            #.github/release/opensuse/build_in_container.sh
+            #ls -ald .
+            #ls -al .
+            #id
+            #getent passwd
+            git config --global --add safe.directory "$(pwd)"
+            .github/release/opensuse/build_in_container.sh
             #.github/release/build_rpm.sh
 
 #      - name: Release
