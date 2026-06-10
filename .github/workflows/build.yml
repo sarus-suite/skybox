@@ -19,7 +19,6 @@ env:
 
 jobs:
   build:
-#    if: github.actor == 'matteo-chesi'
     strategy:
       matrix:
         slurm_version: [ 25.05 ]
@@ -33,11 +32,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     container: 
       image: ${{ env.REPO }}:${{ matrix.slurm_version }}-${{ matrix.build_os }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.github_token }}
       volumes:
         - .:/tmp
-    credentials:
-      username: ${{ github.actor }}
-      password: ${{ secrets.github_token }}
 
     steps:
       - uses: actions/checkout@v6
