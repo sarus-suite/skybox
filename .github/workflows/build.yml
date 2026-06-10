@@ -47,6 +47,7 @@ jobs:
           SLURM_VERSION: ${{ matrix.slurm_version }}
         run: |
           id
+          id 1001
           ls -ald .
           .github/release/opensuse/build_in_container.sh
           #.github/release/build_rpm.sh
