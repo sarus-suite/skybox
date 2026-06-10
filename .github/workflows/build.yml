@@ -59,7 +59,10 @@ jobs:
           push: never
           runCmd: |
             ls -ald .
-            .github/release/opensuse/build_in_container.sh
+            ls -al .
+            id
+            getent passwd
+            #.github/release/opensuse/build_in_container.sh
             #.github/release/build_rpm.sh
 
 #      - name: Release
