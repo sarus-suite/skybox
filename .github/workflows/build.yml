@@ -35,8 +35,8 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
-      volumes:
-        - .:/tmp
+#      volumes:
+#        - .:/tmp
 
     steps:
       - uses: actions/checkout@v6
@@ -46,10 +46,7 @@ jobs:
           BUILD_OS: ${{ matrix.build_os }}
           SLURM_VERSION: ${{ matrix.slurm_version }}
         run: |
-          pwd
-          readlink -f .
-          ls -al .
-          #.github/release/build.sh
+          .github/release/opensuse/build_in_container.sh
           #.github/release/build_rpm.sh
 
 #      - name: Release
