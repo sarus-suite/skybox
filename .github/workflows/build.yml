@@ -31,7 +31,7 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     container: 
-      image: ${{ env.REPO }}:${{ matrix.slurm_version }}-${{ matrix.build_os }}
+      image: $REPO:${{ matrix.slurm_version }}-${{ matrix.build_os }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.github_token }}
