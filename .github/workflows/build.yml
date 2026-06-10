@@ -1,0 +1,74 @@
+name: build
+
+on:
+  workflow_dispatch:            # run manually from the Actions tab
+  inputs:
+    ref:
+      description: "Git ref (branch, tag, or SHA) to build"
+      required: false
+      default: ""             # leave empty to use the selected branch in the UI
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+env:
+  REGISTRY: ghcr.io
+  REPO: ghcr.io/${{ github.repository.owner }}/containerfiles-ci/build-slurm
+
+jobs:
+  build:
+#    if: github.actor == 'matteo-chesi'
+    strategy:
+      matrix:
+        slurm_version: [ 25.05 ]
+        build_os: [ opensuse-15.6 ]
+        arch: [ amd64, arm64 ]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: 
+      image: ${{ env.REPO }}:${{ matrix.slurm_version }}-${{ matrix.build_os }}
+    credentials:
+      username: ${{ github.actor }}
+      password: ${{ secrets.github_token }}
+    volumes:
+      - .:/tmp
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build
+        env:
+          BUILD_OS: ${{ matrix.build_os }}
+          SLURM_VERSION: ${{ matrix.slurm_version }}
+        run: |
+          pwd
+          readlink -f .
+          ls -al .
+          #.github/release/build.sh
+          #.github/release/build_rpm.sh
+
+#      - name: Release
+#        uses: ncipollo/release-action@v1
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          tag: ${{ github.ref_name }}
+#          name: Release ${{ github.ref_name }}
+#          artifacts: ".github/release/dist/RPMS/${{ matrix.arch }}/*.rpm"
+#          allowUpdates: true
+#          replacesArtifacts: false
+#          draft: false
+#          prerelease: false
+
+#  publish:
+#    name: "internal publishing"
+#    needs: build
+#    runs-on: chesim-zinal-login
+#    steps:
+#      - name: publish
+#        run: |
+#          .github/release/publish.sh
