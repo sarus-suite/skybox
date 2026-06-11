@@ -1,6 +1,9 @@
 name: devcontainer-build
 
 on:
+  push:
+    tags:
+      - 'v*'  
   workflow_dispatch:            # run manually from the Actions tab
     inputs:
       ref:
@@ -19,11 +22,10 @@ env:
 
 jobs:
   build:
-#    if: github.actor == 'matteo-chesi'
     strategy:
       matrix:
-        slurm_version: [ 25.05 ]
-        build_os: [ opensuse-15.6 ]
+        slurm_version: [ 24.05, 24.11, 25.05, 25.11, 26.05 ]
+        build_os: [ opensuse-15.5, opensuse-15.6 ]
         arch: [ amd64, arm64 ]
         include:
           - arch: amd64
@@ -31,45 +33,90 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: 
-      image: ${{ env.REPO }}:${{ matrix.slurm_version }}-${{ matrix.build_os }}
-      volumes:
-        - .:/tmp
-    credentials:
-      username: ${{ github.actor }}
-      password: ${{ secrets.github_token }}
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # for version discovery
+          fetch-tags: true
+          fetch-depth: 0
+          # for manual trigger
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
 
-      - name: Build
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build package
         env:
           BUILD_OS: ${{ matrix.build_os }}
           SLURM_VERSION: ${{ matrix.slurm_version }}
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: ".devcontainer/devcontainer.json"
+          cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
+          push: never
+          runCmd: |
+            .github/devcontainer-release/opensuse/build_package.sh
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Package
+          path: ".github/dist/packages/*.*"
+          if-no-files-found: error
+          archive: false
+
+      - name: Upload source package
+        uses: actions/upload-artifact@v7
+        if: ${{ matrix.arch == 'amd64' }}
+        with:
+          name: Source Package
+          path: ".github/dist/src_packages/*.*"
+          if-no-files-found: error
+          archive: false
+
+      - name: Release package
+        if: github.event_name != 'workflow_dispatch'
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          artifacts: ".github/dist/packages/*.*"
+          allowUpdates: true
+          replacesArtifacts: false
+          draft: false
+          prerelease: false
+
+  publish:
+    name: "internal publishing"
+    needs: build
+    runs-on: chesim-zinal-login
+    if: github.event_name != 'workflow_dispatch'
+    steps:
+      - name: publish
         run: |
-          pwd
-          readlink -f .
-          ls -al .
-          #.github/release/build.sh
-          #.github/release/build_rpm.sh
+          .github/release/publish.sh
 
-#      - name: Release
-#        uses: ncipollo/release-action@v1
-#        with:
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          tag: ${{ github.ref_name }}
-#          name: Release ${{ github.ref_name }}
-#          artifacts: ".github/release/dist/RPMS/${{ matrix.arch }}/*.rpm"
-#          allowUpdates: true
-#          replacesArtifacts: false
-#          draft: false
-#          prerelease: false
-
-#  publish:
-#    name: "internal publishing"
-#    needs: build
-#    runs-on: chesim-zinal-login
-#    steps:
-#      - name: publish
-#        run: |
-#          .github/release/publish.sh
+  notify:
+    name: Slack Notification
+    needs: publish
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
+      - name: notify 
+        working-directory: .github/devcontainer-release/scripts
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_ICON: ":sarus:"
+          SLACK_USER: "Sarus Suite"
+          SLACK_MSG: "skybox: new release ${{ github.ref_name }}"
+        run: |
+          ./slack_notify -u "${{ env.SLACK_USER }}" -i "${{ env.SLACK_ICON }}" -t "${{ env.SLACK_MSG }}"

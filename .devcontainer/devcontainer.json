@@ -1,0 +1,4 @@
+{
+  "name": "skybox-build-slurm-${localEnv:SLURM_VERSION}-${localEnv:BUILD_OS}",
+  "image": "ghcr.io/sarus-suite/containerfiles-ci/build-slurm:${localEnv:SLURM_VERSION}-${localEnv:BUILD_OS}"
+}
