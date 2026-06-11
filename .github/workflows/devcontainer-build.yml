@@ -99,9 +99,10 @@ jobs:
 #          .github/release/publish.sh
 
   notify:
-      name: Slack Notification
-      runs-on: ubuntu-latest
-      steps:
+    name: Slack Notification
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
