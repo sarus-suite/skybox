@@ -1,4 +1,0 @@
-{
-  "name": "skybox-build-slurm-25.05-opensuse-15.6",
-  "image": "ghcr.io/sarus-suite/containerfiles-ci/build-slurm:25.05-opensuse-15.6"
-}
