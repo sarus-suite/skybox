@@ -60,6 +60,22 @@ jobs:
           runCmd: |
             .github/devcontainer-release/opensuse/build_package.sh
 
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Package
+          path: .github/dist/packages/*.*"
+          if-no-files-found: error
+          archive: false
+
+      - name: Upload source package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Package
+          path: .github/dist/src_packages/*.*"
+          if-no-files-found: error
+          archive: false
+
 #      - name: Release
 #        uses: ncipollo/release-action@v1
 #        with:

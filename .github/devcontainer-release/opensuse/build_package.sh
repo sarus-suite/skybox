@@ -98,10 +98,10 @@ rpmbuild --target=$ARCH --clean -ba -D"_topdir ${PWD}/rpm"  ./${PRODUCT}.spec
 
 # INSTALL
 OUT_DIR="${DIST_DIR}"
-mkdir -p ${OUT_DIR}/SRPMS
-mv ${SRC_DIR}/rpmbuild/rpm/SRPMS/*.rpm ${OUT_DIR}/SRPMS/
-mkdir -p ${OUT_DIR}/RPMS/${ARCH}
-mv ${SRC_DIR}/rpmbuild/rpm/RPMS/${ARCH}/*.rpm ${OUT_DIR}/RPMS/${ARCH}/
+mkdir -p ${OUT_DIR}/src_packages
+mv ${SRC_DIR}/rpmbuild/rpm/SRPMS/*.rpm ${OUT_DIR}/src_packages
+mkdir -p ${OUT_DIR}/packages
+mv ${SRC_DIR}/rpmbuild/rpm/RPMS/${ARCH}/*.rpm ${OUT_DIR}/packages
 
 # CLEAN
 rm -rf ${SRC_DIR}
