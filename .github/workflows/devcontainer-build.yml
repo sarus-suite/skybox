@@ -30,13 +30,6 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-#    container: 
-#      image: ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}
-#      credentials:
-#        username: ${{ github.actor }}
-#        password: ${{ secrets.github_token }}
-##      volumes:
-##        - .:/tmp
 
     steps:
       - uses: actions/checkout@v6
@@ -83,17 +76,18 @@ jobs:
           if-no-files-found: error
           archive: false
 
-#      - name: Release
-#        uses: ncipollo/release-action@v1
-#        with:
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          tag: ${{ github.ref_name }}
-#          name: Release ${{ github.ref_name }}
-#          artifacts: ".github/release/dist/RPMS/${{ matrix.arch }}/*.rpm"
-#          allowUpdates: true
-#          replacesArtifacts: false
-#          draft: false
-#          prerelease: false
+      - name: Release package
+        if: github.event_name != 'workflow_dispatch'
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          artifacts: ".github/dist/packages/*.*"
+          allowUpdates: true
+          replacesArtifacts: false
+          draft: false
+          prerelease: false
 
 #  publish:
 #    name: "internal publishing"
@@ -103,3 +97,16 @@ jobs:
 #      - name: publish
 #        run: |
 #          .github/release/publish.sh
+
+  notify:
+      name: Slack Notification
+      runs-on: ubuntu-latest
+      steps:
+      - name: notify 
+        uses: bryannice/gitactions-slack-notification@2.0.0
+        env:
+          SLACK_INCOMING_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_MESSAGE: "new release appeared: {{ github.ref_name }}"
+          SLACK_TITLE: 'Slack notification demo'
+          SLACK_ICON: ':sarus:'
+          SLACK_USERNAME: 'Sarus Suite'
