@@ -1,6 +1,10 @@
 name: devcontainer-build
 
 on:
+on:
+  push:
+    tags:
+      - 'v*'  
   workflow_dispatch:            # run manually from the Actions tab
     inputs:
       ref:
@@ -53,7 +57,7 @@ jobs:
           SLURM_VERSION: ${{ matrix.slurm_version }}
         uses: devcontainers/ci@v0.3
         with:
-          configFile: ".devcontainer/slurm-${{ matrix.slurm_version }}-${{ matrix.build_os }}/devcontainer.json"
+          configFile: ".devcontainer/devcontainer.json"
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
@@ -89,19 +93,21 @@ jobs:
           draft: false
           prerelease: false
 
-#  publish:
-#    name: "internal publishing"
-#    needs: build
-#    runs-on: chesim-zinal-login
-#    steps:
-#      - name: publish
-#        run: |
-#          .github/release/publish.sh
+  publish:
+    name: "internal publishing"
+    needs: build
+    runs-on: chesim-zinal-login
+    if: github.event_name != 'workflow_dispatch'
+    steps:
+      - name: publish
+        run: |
+          .github/release/publish.sh
 
   notify:
     name: Slack Notification
-    needs: build
+    needs: publish
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v6
         with:
