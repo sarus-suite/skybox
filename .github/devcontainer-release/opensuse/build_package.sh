@@ -7,20 +7,23 @@ DIST_DIR="${BASE_DIR}/.github/dist"
 cd ${BASE_DIR}
 
 function get_artifacts_versions() {
-  unset VERSION
   VERSION="v$(cat ${BASE_DIR}/Cargo.toml| awk '/^version/{print $3}' | tr "-" "_" | tr -d '"')"
+  [ "${VERSION}" == "v0.0.0" ] && unset VERSION
 }
 
 function check_artifacts_versions() {
-  if [ -z "${VERSION}" ]
-  then
-    echo "Error: Cannot find \$VERSION"
-    return 1
-  fi
   if [ ! -f ${LIB} ]
   then
     echo "Cannot find $LIB, building it"
     ${THIS_DIR}/build.sh || return 1
+  fi
+
+  get_artifacts_versions
+
+  if [ -z "${VERSION}" ]
+  then
+    echo "Error: Cannot find \$VERSION"
+    return 1
   fi
 }
 
@@ -55,7 +58,6 @@ BUILD_OS_NAME=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 BUILD_OS_NAME=${BUILD_OS_NAME%-leap}
 BUILD_OS_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 
-get_artifacts_versions
 check_artifacts_versions || exit 1
 
 mkdir -p ${SRC_DIR}/rpmbuild
