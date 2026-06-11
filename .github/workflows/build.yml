@@ -64,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Package
-          path: .github/dist/packages/*.*"
+          path: ".github/dist/packages/*.*"
           if-no-files-found: error
           archive: false
 
@@ -72,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: Package
-          path: .github/dist/src_packages/*.*"
+          path: ".github/dist/src_packages/*.*"
           if-no-files-found: error
           archive: false
 
