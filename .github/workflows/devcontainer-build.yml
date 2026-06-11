@@ -107,7 +107,7 @@ jobs:
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
       - name: notify 
-        working-directory: ./github/devcontainer-release/scripts
+        working-directory: .github/devcontainer-release/scripts
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
           SLACK_ICON: ":sarus:"
