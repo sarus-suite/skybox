@@ -1,4 +1,4 @@
-name: build
+name: devcontainer-build
 
 on:
   workflow_dispatch:            # run manually from the Actions tab
@@ -41,8 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # for version discovery
           fetch-tags: true
           fetch-depth: 0
+          # for manual trigger
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
 
       - name: Login to GHCR
         uses: docker/login-action@v4
@@ -57,7 +60,7 @@ jobs:
           SLURM_VERSION: ${{ matrix.slurm_version }}
         uses: devcontainers/ci@v0.3
         with:
-          configFile: ".devcontainer/${{ matrix.build_os }}/devcontainer.json"
+          configFile: ".devcontainer/slurm-${{ matrix.slurm_version }}-${{ matrix.build_os }}/devcontainer.json"
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
@@ -75,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ matrix.arch == 'amd64' }}
         with:
-          name: Package
+          name: Source Package
           path: ".github/dist/src_packages/*.*"
           if-no-files-found: error
           archive: false
