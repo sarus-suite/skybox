@@ -1,9 +1,15 @@
 name: release
 
 on:
-  push:
-    tags:
-      - 'v*' 
+#  push:
+#    tags:
+#      - 'v*'
+  workflow_dispatch:            # run manually from the Actions tab
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or SHA) to build"
+        required: false
+        default: ""             # leave empty to use the selected branch in the UI
 
 jobs:
   build:
