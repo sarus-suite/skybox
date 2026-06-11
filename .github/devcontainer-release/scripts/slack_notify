@@ -1,0 +1,93 @@
+#!/bin/bash
+
+function usage() {
+  cat << EOF
+
+  This script sends a slack message.
+
+  Usage: ${SCRIPTNAME} -t <text>
+
+  Options:
+
+  --text|-t <text> : the message to send
+
+  --icon|-i <icon> : icon_emoji to be used. Default "${SLACK_ICON}".
+
+  --username|-u <username> : username to be used. Default "${SLACK_USERNAME}".
+
+  --channel|-c <channel> : channel to send to. Default "${SLACK_CHANNEL}".
+
+EOF
+}
+
+function parse_args() {
+  SLACK_CHANNEL="#ce-events"
+  SLACK_ICON=":robot_face:"
+  SLACK_USERNAME="Rob OT"
+
+  while [ -n $1 ] && [ "$1" != "" ]
+  do
+    case $1 in
+      --text|-t)
+        shift 1
+        TEXT="$1"
+        shift 1
+        ;;
+      --icon|-i)
+        shift 1
+        SLACK_ICON="$1"
+        shift 1
+        ;;
+      --username|-u)
+        shift 1
+        SLACK_USERNAME="$1"
+        shift 1
+        ;;
+      --channel|-c)
+        shift 1
+        SLACK_CHANNEL="$1"
+        shift 1
+        ;;
+      *)
+        echo "ERROR: Unrecognized option \"$1\""
+        usage
+        return 1
+        ;;
+    esac
+  done
+
+  [ -z "${TEXT}" ] && echo "ERROR: Missing --text option" && usage && return 1
+
+  return 0
+}
+
+
+function slack_notify() {
+   local text="$TEXT"
+   local slack_url="${SLACK_WEBHOOK_URL}"
+   local channel="${SLACK_CHANNEL}"
+   local icon_emoji="${SLACK_ICON}"
+   local username="${SLACK_USERNAME}"
+
+   local json_template="{\"channel\": \"$channel\", \"username\": \"$username\", \"text\": \"\", \"icon_emoji\": \"$icon_emoji\"}"
+   local json_payload=$(echo $json_template | jq --arg text "$text" '.text = ( $text | tostring )') 
+
+   response="$(curl -sL -X POST --data-urlencode "payload=$json_payload" $slack_url 2>&1)"
+   RC="$?"
+
+   if [ $RC -eq 0 ] && [ "$response" == "ok" ]
+   then
+     return 0
+   else
+     echo "$response"
+     return $RC
+   fi
+}
+
+#DIRNAME=$(dirname $0)
+#. ${DIRNAME}/config.cfg
+[ -z "${SLACK_WEBHOOK_URL}" ] && echo "ERROR: Missing SLACK_WEBHOOK_URL environment variable" && exit 1
+
+parse_args "$@"
+
+slack_notify

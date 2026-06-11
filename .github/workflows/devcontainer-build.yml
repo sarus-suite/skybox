@@ -102,11 +102,14 @@ jobs:
       name: Slack Notification
       runs-on: ubuntu-latest
       steps:
+      - uses: actions/checkout@6
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
       - name: notify 
-        uses: bryannice/gitactions-slack-notification@2.0.0
+        working-directory: ./github/devcontainer-release/scripts
         env:
-          SLACK_INCOMING_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
-          SLACK_MESSAGE: "new release appeared: {{ github.ref_name }}"
-          SLACK_TITLE: 'Slack notification demo'
-          SLACK_ICON: ':sarus:'
-          SLACK_USERNAME: 'Sarus Suite'
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          SLACK_ICON: ":sarus:"
+          SLACK_USER: "Sarus Suite"
+          SLACK_MSG: "skybox: new release ${{ github.ref_name }}"
+        run: |
+          ./slack_notify -u "${{ env.SLACK_USER }}" -i "${{ env.SLACK_ICON }}" -t "${{ env.SLACK_MSG }}"
