@@ -1,7 +1,6 @@
 name: devcontainer-build
 
 on:
-on:
   push:
     tags:
       - 'v*'  
