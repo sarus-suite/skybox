@@ -102,7 +102,7 @@ jobs:
       name: Slack Notification
       runs-on: ubuntu-latest
       steps:
-      - uses: actions/checkout@6
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
       - name: notify 
