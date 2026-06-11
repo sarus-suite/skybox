@@ -48,7 +48,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build
+      - name: Build package
         env:
           BUILD_OS: ${{ matrix.build_os }}
           SLURM_VERSION: ${{ matrix.slurm_version }}
@@ -58,13 +58,7 @@ jobs:
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
-            #ls -ald .
-            #ls -al .
-            #id
-            #getent passwd
-            git config --global --add safe.directory "$(pwd)"
-            .github/release/opensuse/build_in_container.sh
-            #.github/release/build_rpm.sh
+            .github/devcontainer-release/opensuse/build_package.sh
 
 #      - name: Release
 #        uses: ncipollo/release-action@v1
