@@ -98,6 +98,14 @@ jobs:
     runs-on: chesim-zinal-login
     if: github.event_name != 'workflow_dispatch'
     steps:
+      - uses: actions/checkout@v6
+        with:
+          # for version discovery
+          fetch-tags: true
+          fetch-depth: 0
+          # for manual trigger
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref_name }}
+
       - name: publish
         run: |
           .github/release/publish.sh
