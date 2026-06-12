@@ -363,6 +363,13 @@ pub(crate) fn sync_cleanup_fs_shared(
         }
     }
 
+    match raster::imagestore_keepalive(&ssb.config)? {
+        Some(output) => {
+            skybox_log_debug!("{}", output);
+        },
+        None => (),
+    };
+
     Ok(())
 }
 
