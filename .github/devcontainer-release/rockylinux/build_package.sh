@@ -37,7 +37,12 @@ function build_venv_j2cli() {
     python3 -m venv tmp/venv
     source tmp/venv/bin/activate
     python3 -m pip install --upgrade pip &>/dev/null
-    pip3 install jinjanator &>/dev/null
+    if [ ${PYTHON_VERSION} -lt 310 ]
+    then
+      pip3 install j2cli &>/dev/null
+    else
+      pip3 install jinjanator &>/dev/null
+    fi
   fi
 
   popd >/dev/null
@@ -47,7 +52,12 @@ function j2cli() {
   ARGS=$@
   build_venv_j2cli
   source ${BASE_DIR}/.github/tmp/venv/bin/activate
-  jinjanate --quiet $ARGS
+  if [ ${PYTHON_VERSION} -lt 310 ]
+  then
+    j2 $ARGS
+  else
+    jinjanate --quiet $ARGS
+  fi
   deactivate
 }
 
@@ -57,6 +67,8 @@ LIB="${DIST_DIR}/lib${PRODUCT}.so"
 BUILD_OS_NAME=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 BUILD_OS_NAME=${BUILD_OS_NAME%-leap}
 BUILD_OS_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"')
+BUILD_OS_MAJOR_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"' | cut -d. -f1)
+PYTHON_VERSION=$(python3 --version | sed 's/^.* \([0-9]*\)\.\([0-9]*\)\.[0-9]$/\1 \2/' | xargs -n2 printf "%d%02d")
 
 check_artifacts_versions || exit 1
 
