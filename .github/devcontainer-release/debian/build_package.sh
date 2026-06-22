@@ -107,7 +107,7 @@ OUT_DIR="${DIST_DIR}"
 #mkdir -p ${OUT_DIR}/src_packages
 #mv ${SRC_DIR}/pkgbuild/*.deb ${OUT_DIR}/src_packages
 mkdir -p ${OUT_DIR}/packages
-mv ${SRC_DIR}/pkgbuild/*.deb ${OUT_DIR}/packages
+find ${SRC_DIR}/pkgbuild/ -type f -name \*.deb ! -name \*dbgsym\* -exec mv {} ${OUT_DIR}/packages \;
 
 # CLEAN
 rm -rf ${SRC_DIR}
