@@ -77,7 +77,7 @@ cd ${SRC_DIR}/pkgbuild
 
 MAJOR_SLURM_VERSION=$(slurmd --version | cut -d' ' -f2 | awk -F. '{print $1"_"$2}')
 PACKAGE_NAME="${PRODUCT}-slurm${MAJOR_SLURM_VERSION}"
-RELEASE="0.${BUILD_OS_NAME}.${BUILD_OS_VERSION}"
+RELEASE="0.el${BUILD_OS_MAJOR_VERSION}"
 INPUT_FILE="${SRC_DIR}/input.json"
 
 cat >${INPUT_FILE} <<EOF

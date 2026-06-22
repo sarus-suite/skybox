@@ -25,7 +25,7 @@ jobs:
     strategy:
       matrix:
         slurm_version: [ 24.05, 24.11, 25.05, 25.11, 26.05 ]
-        build_os: [ opensuse-15.5, opensuse-15.6 ]
+        build_os: [ debian-12, debian-13, opensuse-15.5, opensuse-15.6, rockylinux-8, rockylinux-9, rockylinux-10, ubuntu-24.04, ubuntu-25.10, ubuntu-26.04 ]
         arch: [ amd64, arm64 ]
         include:
           - arch: amd64
@@ -60,7 +60,9 @@ jobs:
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
-            .github/devcontainer-release/opensuse/build_package.sh
+            OS_NAME=$(echo "${{ matrix.build_os }}" | cut -d'-' -f1)
+            OS_VERSION=$(echo "${{ matrix.build_os }}" | cut -d'-' -f2)
+            .github/devcontainer-release/${OS_NAME}/build_package.sh
 
       - name: Upload package
         uses: actions/upload-artifact@v7
@@ -70,14 +72,14 @@ jobs:
           if-no-files-found: error
           archive: false
 
-      - name: Upload source package
-        uses: actions/upload-artifact@v7
-        if: ${{ matrix.arch == 'amd64' }}
-        with:
-          name: Source Package
-          path: ".github/dist/src_packages/*.*"
-          if-no-files-found: error
-          archive: false
+      #- name: Upload source package
+      #  uses: actions/upload-artifact@v7
+      #  if: ${{ matrix.arch == 'amd64' }}
+      #  with:
+      #    name: Source Package
+      #    path: ".github/dist/src_packages/*.*"
+      #    if-no-files-found: error
+      #    archive: false
 
       - name: Release package
         if: github.event_name != 'workflow_dispatch'
