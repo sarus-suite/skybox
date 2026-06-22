@@ -68,7 +68,7 @@ BUILD_OS_NAME=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 BUILD_OS_NAME=${BUILD_OS_NAME%-leap}
 BUILD_OS_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 BUILD_OS_MAJOR_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"' | cut -d. -f1)
-PYTHON_VERSION=$(python3 --version | sed 's/^.* \([0-9]*\)\.\([0-9]*\)\.[0-9]$/\1 \2/' | xargs -n2 printf "%d%02d")
+PYTHON_VERSION=$(python3 --version | sed 's/^.* \([0-9]*\)\.\([0-9]*\)\.[0-9]*$/\1 \2/' | xargs -n2 printf "%d%02d")
 
 check_artifacts_versions || exit 1
 
