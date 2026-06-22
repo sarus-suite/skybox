@@ -61,8 +61,8 @@ jobs:
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
-            OS_NAME=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
-            OS_VERSION=$(echo "${{ matrix.os }}" | cut -d'-' -f2)
+            OS_NAME=$(echo "${{ matrix.build_os }}" | cut -d'-' -f1)
+            OS_VERSION=$(echo "${{ matrix.build_os }}" | cut -d'-' -f2)
             .github/devcontainer-release/${OS_NAME}/build_package.sh
 
       - name: Upload package
