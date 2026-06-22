@@ -73,14 +73,14 @@ jobs:
           if-no-files-found: error
           archive: false
 
-      - name: Upload source package
-        uses: actions/upload-artifact@v7
-        if: ${{ matrix.arch == 'amd64' }}
-        with:
-          name: Source Package
-          path: ".github/dist/src_packages/*.*"
-          if-no-files-found: error
-          archive: false
+      #- name: Upload source package
+      #  uses: actions/upload-artifact@v7
+      #  if: ${{ matrix.arch == 'amd64' }}
+      #  with:
+      #    name: Source Package
+      #    path: ".github/dist/src_packages/*.*"
+      #    if-no-files-found: error
+      #    archive: false
 
       - name: Release package
         if: github.event_name != 'workflow_dispatch'
