@@ -7,7 +7,7 @@ DIST_DIR="${BASE_DIR}/.github/dist"
 cd ${BASE_DIR}
 
 function get_artifacts_versions() {
-  VERSION="v$(cat ${BASE_DIR}/Cargo.toml| awk '/^version/{print $3}' | tr "-" "_" | tr -d '"')"
+  VERSION="v$(cat ${BASE_DIR}/Cargo.toml| awk '/^version/{print $3}' | tr "-" "+" | tr -d '"')"
   [ "${VERSION}" == "v0.0.0" ] && unset VERSION
 }
 
@@ -37,7 +37,12 @@ function build_venv_j2cli() {
     python3 -m venv tmp/venv
     source tmp/venv/bin/activate
     python3 -m pip install --upgrade pip &>/dev/null
-    pip install j2cli &>/dev/null
+    if [ ${PYTHON_VERSION} -lt 310 ]
+    then
+      pip3 install j2cli &>/dev/null
+    else
+      pip3 install jinjanator &>/dev/null
+    fi
   fi
 
   popd >/dev/null
@@ -47,7 +52,12 @@ function j2cli() {
   ARGS=$@
   build_venv_j2cli
   source ${BASE_DIR}/.github/tmp/venv/bin/activate
-  j2 $ARGS
+  if [ ${PYTHON_VERSION} -lt 310 ]
+  then
+    j2 $ARGS
+  else
+    jinjanate --quiet $ARGS
+  fi
   deactivate
 }
 
@@ -57,11 +67,13 @@ LIB="${DIST_DIR}/lib${PRODUCT}.so"
 BUILD_OS_NAME=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
 BUILD_OS_NAME=${BUILD_OS_NAME%-leap}
 BUILD_OS_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"')
+BUILD_OS_MAJOR_VERSION=$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d '"' | cut -d. -f1)
+PYTHON_VERSION=$(python3 --version | sed 's/^.* \([0-9]*\)\.\([0-9]*\)\.[0-9]$/\1 \2/' | xargs -n2 printf "%d%02d")
 
 check_artifacts_versions || exit 1
 
-mkdir -p ${SRC_DIR}/rpmbuild
-cd ${SRC_DIR}/rpmbuild
+mkdir -p ${SRC_DIR}/pkgbuild
+cd ${SRC_DIR}/pkgbuild
 
 MAJOR_SLURM_VERSION=$(slurmd --version | cut -d' ' -f2 | awk -F. '{print $1"_"$2}')
 PACKAGE_NAME="${PRODUCT}-slurm${MAJOR_SLURM_VERSION}"
@@ -71,7 +83,7 @@ INPUT_FILE="${SRC_DIR}/input.json"
 cat >${INPUT_FILE} <<EOF
 {
   "product": "${PACKAGE_NAME}",
-  "version": "${VERSION}",
+  "version": "${VERSION#v}",
   "release": "${RELEASE}",
   "libdir": "/usr/lib64/slurm",
   "libname": "lib${PRODUCT}.so",
@@ -79,7 +91,7 @@ cat >${INPUT_FILE} <<EOF
 }
 EOF
 
-CUSTOM_FILE="${SRC_DIR}/rpmbuild/custom.py"
+CUSTOM_FILE="${SRC_DIR}/pkgbuild/custom.py"
 cat >${CUSTOM_FILE} <<EOF
 def j2_environment_params():
     return dict(
@@ -99,9 +111,9 @@ rpmbuild --target=$ARCH --clean -ba -D"_topdir ${PWD}/rpm"  ./${PRODUCT}.spec
 # INSTALL
 OUT_DIR="${DIST_DIR}"
 mkdir -p ${OUT_DIR}/src_packages
-mv ${SRC_DIR}/rpmbuild/rpm/SRPMS/*.rpm ${OUT_DIR}/src_packages
+mv ${SRC_DIR}/pkgbuild/rpm/SRPMS/*.rpm ${OUT_DIR}/src_packages
 mkdir -p ${OUT_DIR}/packages
-mv ${SRC_DIR}/rpmbuild/rpm/RPMS/${ARCH}/*.rpm ${OUT_DIR}/packages
+mv ${SRC_DIR}/pkgbuild/rpm/RPMS/${ARCH}/*.rpm ${OUT_DIR}/packages
 
 # CLEAN
 rm -rf ${SRC_DIR}
