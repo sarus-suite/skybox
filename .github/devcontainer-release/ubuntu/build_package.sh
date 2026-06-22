@@ -7,7 +7,7 @@ DIST_DIR="${BASE_DIR}/.github/dist"
 cd ${BASE_DIR}
 
 function get_artifacts_versions() {
-  VERSION="v$(cat ${BASE_DIR}/Cargo.toml| awk '/^version/{print $3}' | tr "-" "_" | tr -d '"')"
+  VERSION="v$(cat ${BASE_DIR}/Cargo.toml| awk '/^version/{print $3}' | tr "-" "+" | tr -d '"')"
   [ "${VERSION}" == "v0.0.0" ] && unset VERSION
 }
 
