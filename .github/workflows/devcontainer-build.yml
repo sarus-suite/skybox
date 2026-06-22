@@ -61,7 +61,7 @@ jobs:
           cacheFrom: "ghcr.io/${{ github.repository_owner }}/containerfiles-ci/build-slurm:${{ matrix.slurm_version }}-${{ matrix.build_os }}"
           push: never
           runCmd: |
-            .github/devcontainer-release/opensuse/build_package.sh
+            .github/devcontainer-release/${{ matrix.build_os }}/build_package.sh
 
       - name: Upload package
         uses: actions/upload-artifact@v7
