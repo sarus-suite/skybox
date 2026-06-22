@@ -28,7 +28,8 @@ jobs:
         #build_os: [ opensuse-15.5, opensuse-15.6 ]
         #build_os: [ ubuntu-24.04, ubuntu-25.10, ubuntu-26.04 ]
         #build_os: [ debian-12, debian-13 ]
-        build_os: [ rockylinux-8, rockylinux-9, rockylinux-10 ]
+        #build_os: [ rockylinux-8, rockylinux-9, rockylinux-10 ]
+        build_os: [ rockylinux-10 ]
         arch: [ amd64, arm64 ]
         include:
           - arch: amd64
