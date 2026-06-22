@@ -25,7 +25,8 @@ jobs:
     strategy:
       matrix:
         slurm_version: [ 24.05, 24.11, 25.05, 25.11, 26.05 ]
-        build_os: [ opensuse-15.5, opensuse-15.6 ]
+        #build_os: [ opensuse-15.5, opensuse-15.6 ]
+        build_os: [ ubuntu-26.04 ]
         arch: [ amd64, arm64 ]
         include:
           - arch: amd64
