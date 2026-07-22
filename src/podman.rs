@@ -163,6 +163,7 @@ pub(crate) fn podman_start(
     let c_ctx = ContainerCtx {
         name: run.name.clone(),
         interactive: false,
+        tty: false,
         detach: true,
         set_env: false,
         pidfile: Some(PathBuf::from(pidfile.clone())),
