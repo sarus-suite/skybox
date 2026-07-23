@@ -165,6 +165,7 @@ pub(crate) fn podman_start(
         interactive: false,
         tty: false,
         detach: true,
+        auto_remove: true,
         set_env: false,
         pidfile: Some(PathBuf::from(pidfile.clone())),
         user: Some(job.uid.to_string()),
