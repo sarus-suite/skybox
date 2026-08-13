@@ -1,7 +1,8 @@
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
+use std::io::ErrorKind;
 use std::io::{BufRead, BufReader, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use sysinfo::{Pid, ProcessStatus, System};
 
 use slurm_spank::SpankHandle;
@@ -11,6 +12,92 @@ use crate::{
     podman::podman_start, podman::podman_stop, skybox_log_debug, skybox_log_error,
     tracking::track_usage,
 };
+
+const PODMAN_START_FAILURE_FILE: &str = ".podman-start.failed";
+
+#[derive(Debug, PartialEq, Eq)]
+enum PodmanStartState {
+    Pending,
+    Failed,
+    Started(usize),
+}
+
+fn podman_start_failure_path(run_path: &Path) -> PathBuf {
+    run_path.join(PODMAN_START_FAILURE_FILE)
+}
+
+fn podman_pidfile_path(run_path: &Path) -> PathBuf {
+    run_path.join(crate::podman::PODMAN_PIDFILE_NAME)
+}
+
+fn clear_podman_start_failure(run_path: &Path) -> Result<(), Box<dyn Error>> {
+    let path = podman_start_failure_path(run_path);
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "failed to remove stale Podman startup failure marker `{}`: {}",
+            path.display(),
+            error
+        )
+        .into()),
+    }
+}
+
+fn notify_podman_start_failure(run_path: &Path) -> Result<(), Box<dyn Error>> {
+    let path = podman_start_failure_path(run_path);
+    File::create(&path).map(|_| ()).map_err(|error| {
+        format!(
+            "failed to create Podman startup failure marker `{}`: {}",
+            path.display(),
+            error
+        )
+        .into()
+    })
+}
+
+fn read_podman_start_state(run_path: &Path) -> Result<PodmanStartState, Box<dyn Error>> {
+    let failure_path = podman_start_failure_path(run_path);
+    match failure_path.try_exists() {
+        Ok(true) => return Ok(PodmanStartState::Failed),
+        Ok(false) => {}
+        Err(error) => {
+            return Err(format!(
+                "failed to inspect Podman startup failure marker `{}`: {}",
+                failure_path.display(),
+                error
+            )
+            .into());
+        }
+    }
+
+    let pidfile = podman_pidfile_path(run_path);
+    let contents = match fs::read_to_string(&pidfile) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            return Ok(PodmanStartState::Pending);
+        }
+        Err(error) => {
+            return Err(format!(
+                "failed to read container PID file `{}`: {}",
+                pidfile.display(),
+                error
+            )
+            .into());
+        }
+    };
+
+    let value = contents.trim();
+    let pid = value.parse::<usize>().map_err(|error| {
+        format!(
+            "invalid PID `{}` in container PID file `{}`: {}",
+            value,
+            pidfile.display(),
+            error
+        )
+    })?;
+    Ok(PodmanStartState::Started(pid))
+}
 
 pub(crate) fn is_local_task_0(ssb: &mut SpankSkyBox, _spank: &mut SpankHandle) -> bool {
     let job = match ssb.job.clone() {
@@ -83,8 +170,8 @@ pub(crate) fn sync_podman_pull(
                 sync_podman_pull_done(ssb, spank, 0)?;
             }
             Err(e) => {
-                skybox_log_error!("{e}");
                 sync_podman_pull_done(ssb, spank, -1)?;
+                return Err(e);
             }
         }
     } else {
@@ -157,12 +244,7 @@ pub(crate) fn sync_podman_pull_done(
     let mut file = File::create(run.syncfile_path)?;
     write!(file, "{}\n", result)?;
 
-    if result != 0 {
-        let err_msg = format!("podman pull error RC:{}", result);
-        return plugin_err(&err_msg);
-    } else {
-        return Ok(());
-    }
+    Ok(())
 }
 
 pub(crate) fn sync_podman_start(
@@ -170,7 +252,22 @@ pub(crate) fn sync_podman_start(
     spank: &mut SpankHandle,
 ) -> Result<(), Box<dyn Error>> {
     if is_local_task_0(ssb, spank) {
-        podman_start(ssb, spank)?;
+        let run = ssb
+            .run
+            .as_ref()
+            .ok_or_else(|| -> Box<dyn Error> { "couldn't find run".into() })?;
+        let tmp_path = PathBuf::from(&run.podman_tmp_path);
+        clear_podman_start_failure(&tmp_path)?;
+
+        if let Err(error) = podman_start(ssb, spank) {
+            if let Err(sync_error) = notify_podman_start_failure(&tmp_path) {
+                skybox_log_error!(
+                    "failed to notify sibling tasks of Podman startup failure: {}",
+                    sync_error
+                );
+            }
+            return Err(error);
+        }
     }
     sync_podman_start_wait(ssb, spank)?;
 
@@ -188,8 +285,8 @@ pub(crate) fn sync_podman_start_wait(
         }
     };
 
-    let pidfile = format!("{}/pidfile", run.podman_tmp_path);
-    let strpid;
+    let tmp_path = PathBuf::from(&run.podman_tmp_path);
+    let pid;
 
     let mut attempts: u32 = 0;
     let pause = std::time::Duration::from_millis(100);
@@ -197,26 +294,30 @@ pub(crate) fn sync_podman_start_wait(
     let mut max_attempts: u32 = 600;
 
     loop {
-        let result = std::fs::read_to_string(&pidfile);
-        match result {
-            Ok(s) => {
-                strpid = s;
+        match read_podman_start_state(&tmp_path)? {
+            PodmanStartState::Started(started_pid) => {
+                pid = started_pid;
                 break;
             }
-            Err(_) => {
+            PodmanStartState::Failed => {
+                return plugin_err("Podman container startup failed on local task 0");
+            }
+            PodmanStartState::Pending => {
                 attempts += 1;
 
                 // Fail with error after max attempts
                 if attempts >= max_attempts {
-                    let msg = format!("failed to read container pidfile {pidfile}.");
+                    let msg = String::from(
+                        "Timed out waiting for Podman container to start on local task 0",
+                    );
                     skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
                     return plugin_err(&msg);
                 }
 
                 // Log first and every 50 retries to limit log spam
-                if attempts == 1 || attempts % 50 == 0 {
+                if attempts == 1 || attempts.is_multiple_of(50) {
                     skybox_log_debug!(
-                        "task {} - cannot read container pidfile {pidfile} yet, waiting and retrying",
+                        "task {} - Still waiting for Podman container to start on local task 0",
                         get_local_task_id(ssb)
                     );
                 }
@@ -226,7 +327,6 @@ pub(crate) fn sync_podman_start_wait(
         }
     }
 
-    let pid: usize = strpid.parse()?;
     attempts = 0;
     // Wait max 5 minutes for entrypoint
     max_attempts = 5 * 600;
@@ -239,15 +339,15 @@ pub(crate) fn sync_podman_start_wait(
 
             // Fail with error after max attempts
             if attempts >= max_attempts {
-                let msg = format!("container entrypoint process {strpid} did not complete.");
+                let msg = format!("container entrypoint process {pid} did not complete.");
                 skybox_log_error!("task {} - {msg}", get_local_task_id(ssb));
                 return plugin_err(&msg);
             }
 
             // Log first and every 50 retries to limit log spam
-            if attempts == 1 || attempts % 50 == 0 {
+            if attempts == 1 || attempts.is_multiple_of(50) {
                 skybox_log_debug!(
-                    "task {} - container entrypoint process {strpid} hasn't completed yet, waiting and retrying",
+                    "task {} - container entrypoint process {pid} hasn't completed yet, waiting and retrying",
                     get_local_task_id(ssb)
                 );
             }
@@ -261,7 +361,7 @@ pub(crate) fn sync_podman_start_wait(
 
     ssb.run = Some(newrun);
 
-    return Ok(());
+    Ok(())
 }
 
 pub(crate) fn sync_podman_stop(
@@ -363,12 +463,9 @@ pub(crate) fn sync_cleanup_fs_shared(
         }
     }
 
-    match raster::imagestore_keepalive(&ssb.config)? {
-        Some(output) => {
-            skybox_log_debug!("{}", output);
-        },
-        None => (),
-    };
+    if let Some(output) = raster::imagestore_keepalive(&ssb.config)? {
+        skybox_log_debug!("{}", output);
+    }
 
     Ok(())
 }
@@ -381,4 +478,87 @@ pub(crate) fn sync_tracking(
         track_usage(ssb, spank)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mktemp::Temp;
+
+    fn test_run(directory: &Temp) -> crate::Run {
+        crate::Run {
+            name: "test".into(),
+            pid: usize::MAX,
+            podman_tmp_path: directory.to_string_lossy().into_owned(),
+            syncfile_path: directory.join("pull.done").to_string_lossy().into_owned(),
+        }
+    }
+
+    #[test]
+    fn startup_is_pending_without_marker_or_pidfile() {
+        let directory = Temp::new_dir().unwrap();
+        let run = test_run(&directory);
+        let tmp_path = PathBuf::from(run.podman_tmp_path);
+
+        assert_eq!(
+            read_podman_start_state(&tmp_path).unwrap(),
+            PodmanStartState::Pending
+        );
+    }
+
+    #[test]
+    fn startup_reads_and_trims_pidfile() {
+        let directory = Temp::new_dir().unwrap();
+        let run = test_run(&directory);
+        let tmp_path = PathBuf::from(run.podman_tmp_path);
+        fs::write(podman_pidfile_path(&tmp_path), "1234\n").unwrap();
+
+        assert_eq!(
+            read_podman_start_state(&tmp_path).unwrap(),
+            PodmanStartState::Started(1234)
+        );
+    }
+
+    #[test]
+    fn startup_reports_invalid_pidfile_value() {
+        let directory = Temp::new_dir().unwrap();
+        let run = test_run(&directory);
+        let tmp_path = PathBuf::from(run.podman_tmp_path);
+        let pidfile = podman_pidfile_path(&tmp_path);
+        fs::write(&pidfile, "not-a-pid\n").unwrap();
+
+        let error = read_podman_start_state(&tmp_path).unwrap_err();
+        let report = error.to_string();
+        assert!(report.contains("invalid PID `not-a-pid`"));
+        assert!(report.contains(&pidfile.display().to_string()));
+    }
+
+    #[test]
+    fn startup_failure_marker_takes_precedence_over_pidfile() {
+        let directory = Temp::new_dir().unwrap();
+        let run = test_run(&directory);
+        let tmp_path = PathBuf::from(run.podman_tmp_path);
+        fs::write(podman_pidfile_path(&tmp_path), "1234\n").unwrap();
+        notify_podman_start_failure(&tmp_path).unwrap();
+
+        assert_eq!(
+            read_podman_start_state(&tmp_path).unwrap(),
+            PodmanStartState::Failed
+        );
+    }
+
+    #[test]
+    fn clears_stale_startup_failure_marker() {
+        let directory = Temp::new_dir().unwrap();
+        let run = test_run(&directory);
+        let tmp_path = PathBuf::from(run.podman_tmp_path);
+        notify_podman_start_failure(&tmp_path).unwrap();
+
+        clear_podman_start_failure(&tmp_path).unwrap();
+
+        assert_eq!(
+            read_podman_start_state(&tmp_path).unwrap(),
+            PodmanStartState::Pending
+        );
+    }
 }

@@ -83,6 +83,7 @@ struct Job {
 struct Run {
     name: String,
     pid: usize,
+    // TODO: consider using PathBuf instead of String for paths
     podman_tmp_path: String,
     syncfile_path: String,
 }

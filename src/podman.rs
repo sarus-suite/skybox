@@ -8,7 +8,9 @@ use slurm_spank::{SpankHandle, spank_log_user};
 use sarus_suite_podman_driver::{self as pmd, ContainerCtx, PodmanCtx};
 
 use crate::config::setup_imagestore;
-use crate::{SpankSkyBox, plugin_err, skybox_log_debug};
+use crate::{SpankSkyBox, plugin_err, skybox_log_debug, skybox_log_error};
+
+pub(crate) const PODMAN_PIDFILE_NAME: &str = "pidfile";
 
 fn process_exists(pid: usize) -> bool {
     let p = Pid::from(pid);
@@ -100,14 +102,14 @@ pub(crate) fn podman_pull(
     )
     .with_env("PARALLAX_MP_LOGFILE", config.parallax_mp_logfile.clone());
 
-    if !pmd_image_exists(&edf.image, &ro_ctx) {
+    if !pmd_image_exists(&edf.image, &ro_ctx)? {
         skybox_log_debug!(
             "pulling image \"{}\" from remote in local graphroot",
             edf.image
         );
-        pmd_pull(&edf.image, &local_ctx);
+        pmd_pull(&edf.image, &local_ctx)?;
 
-        if !pmd_image_exists(&edf.image, &local_ctx) {
+        if !pmd_image_exists(&edf.image, &local_ctx)? {
             return plugin_err("podman pull failed, cannot find image in local graphroot");
         }
 
@@ -115,9 +117,15 @@ pub(crate) fn podman_pull(
         pmd_parallax_migrate(&config.parallax_path, &migrate_ctx, &edf.image)?;
 
         skybox_log_debug!("removing image \"{}\" from local graphroot", edf.image);
-        pmd_rmi(&edf.image, &local_ctx);
+        if let Err(error) = pmd_rmi(&edf.image, &local_ctx) {
+            skybox_log_error!(
+                "failed to remove image \"{}\" from local graphroot: {}",
+                edf.image,
+                error
+            );
+        }
 
-        if !pmd_image_exists(&edf.image, &ro_ctx) {
+        if !pmd_image_exists(&edf.image, &ro_ctx)? {
             return plugin_err("couldn't find image on shared imagestore after migration");
         }
     }
@@ -154,7 +162,7 @@ pub(crate) fn podman_start(
 
     let graphroot = format!("{}/graphroot", run.podman_tmp_path);
     let runroot = format!("{}/runroot", run.podman_tmp_path);
-    let pidfile = format!("{}/pidfile", run.podman_tmp_path);
+    let pidfile = format!("{}/{}", run.podman_tmp_path, PODMAN_PIDFILE_NAME);
     //let command = vec!["sleep", "infinity"];
     let command = vec!["sh", "-c", "kill -STOP $$ ; exit 0"];
     //let command = vec!["sh", "-l", "-c", "exec sh -c 'kill -STOP $$ ; exit 0'"];
@@ -196,6 +204,7 @@ pub(crate) fn podman_start(
     return pmd_run(&edf, &config, &run_ctx, &c_ctx, command);
 }
 
+// TODO: clarify usefulness of this function since the pid is already acquired in crate::sync::sync_podman_start_wait()
 pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<usize, Box<dyn Error>> {
     let run = match &ssb.run {
         Some(o) => o,
@@ -205,7 +214,7 @@ pub(crate) fn podman_get_pid_from_file(ssb: &mut SpankSkyBox) -> Result<usize, B
     };
 
     //Try to read from pidfile
-    let pidfile = format!("{}/pidfile", run.podman_tmp_path);
+    let pidfile = format!("{}/{}", run.podman_tmp_path, PODMAN_PIDFILE_NAME);
     if std::path::Path::new(&pidfile).exists() {
         let strpid = match std::fs::read_to_string(&pidfile) {
             Ok(s) => s,
@@ -264,12 +273,12 @@ pub(crate) fn podman_stop(
     Ok(())
 }
 
-pub(crate) fn pmd_image_exists(image: &str, ctx: &PodmanCtx) -> bool {
-    pmd::image_exists(image, Some(ctx)).unwrap_or(false)
+pub(crate) fn pmd_image_exists(image: &str, ctx: &PodmanCtx) -> pmd::Result<bool> {
+    pmd::image_exists(image, Some(ctx))
 }
 
-pub(crate) fn pmd_pull(image: &str, ctx: &PodmanCtx) -> () {
-    let _ = pmd::pull(image, Some(ctx));
+pub(crate) fn pmd_pull(image: &str, ctx: &PodmanCtx) -> pmd::Result<()> {
+    pmd::pull(image, Some(ctx))
 }
 
 pub(crate) fn pmd_parallax_migrate(
@@ -281,8 +290,8 @@ pub(crate) fn pmd_parallax_migrate(
     Ok(())
 }
 
-pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> () {
-    let _ = pmd::rmi(image, Some(ctx));
+pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> pmd::Result<()> {
+    pmd::rmi(image, Some(ctx))
 }
 
 pub(crate) fn pmd_run<I, S>(
@@ -297,7 +306,7 @@ where
     S: AsRef<std::ffi::OsStr>,
 {
     let t0 = Instant::now();
-    let output = pmd::run_from_edf_output(edf, Some(p_ctx), c_ctx, cmd);
+    let result = pmd::run_from_edf_output(edf, Some(p_ctx), c_ctx, cmd);
     let tend = t0.elapsed();
 
     if config.perfmon {
@@ -307,14 +316,6 @@ where
         );
     }
 
-    match output?.status.code() {
-        Some(rc) => {
-            if rc != 0 {
-                return plugin_err(format!("podman run exited with {rc}").as_str());
-            }
-        }
-        None => return plugin_err("podman run failed badly"),
-    };
-
+    result?;
     Ok(())
 }
