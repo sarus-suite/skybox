@@ -5,8 +5,7 @@ use sysinfo::{Pid, System};
 
 use slurm_spank::{SpankHandle, spank_log_user};
 
-use sarus_suite_podman_driver::loggable::{self as pmd, ExecutedCommand};
-use sarus_suite_podman_driver::{ContainerCtx, PodmanCtx};
+use sarus_suite_podman_driver::{self as pmd, ContainerCtx, PodmanCtx};
 
 use crate::config::setup_imagestore;
 use crate::{SpankSkyBox, plugin_err, skybox_log_debug};
@@ -266,23 +265,11 @@ pub(crate) fn podman_stop(
 }
 
 pub(crate) fn pmd_image_exists(image: &str, ctx: &PodmanCtx) -> bool {
-    let prefix = "podman image exists";
-
-    let ec = pmd::image_exists(&image, Some(&ctx));
-
-    let result = ec.output.status.success();
-
-    log_ec(ec, prefix);
-
-    result
+    pmd::image_exists(image, Some(ctx)).unwrap_or(false)
 }
 
 pub(crate) fn pmd_pull(image: &str, ctx: &PodmanCtx) -> () {
-    let prefix = "podman pull";
-
-    let ec = pmd::pull(&image, Some(&ctx));
-
-    log_ec(ec, prefix);
+    let _ = pmd::pull(image, Some(ctx));
 }
 
 pub(crate) fn pmd_parallax_migrate(
@@ -290,30 +277,12 @@ pub(crate) fn pmd_parallax_migrate(
     ctx: &PodmanCtx,
     image: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let prefix = "parallax_migrate";
-
-    let ec = pmd::parallax_migrate(&PathBuf::from(parallax_path), ctx, image);
-
-    log_ec(ec.clone(), prefix);
-
-    match ec.output.status.code() {
-        Some(rc) => {
-            if rc != 0 {
-                return plugin_err(format!("parallax migrate exited with {rc}").as_str());
-            }
-        }
-        None => return plugin_err("parallax migrate failed badly"),
-    };
-
+    pmd::parallax_migrate(&PathBuf::from(parallax_path), ctx, image)?;
     Ok(())
 }
 
 pub(crate) fn pmd_rmi(image: &str, ctx: &PodmanCtx) -> () {
-    let prefix = "podman rmi";
-
-    let ec = pmd::rmi(&image, Some(&ctx));
-
-    log_ec(ec, prefix);
+    let _ = pmd::rmi(image, Some(ctx));
 }
 
 pub(crate) fn pmd_run<I, S>(
@@ -327,10 +296,8 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<std::ffi::OsStr>,
 {
-    let prefix = "podman run";
-
     let t0 = Instant::now();
-    let ec = pmd::run_from_edf(edf, Some(&p_ctx), &c_ctx, cmd);
+    let output = pmd::run_from_edf_output(edf, Some(p_ctx), c_ctx, cmd);
     let tend = t0.elapsed();
 
     if config.perfmon {
@@ -340,9 +307,7 @@ where
         );
     }
 
-    log_ec(ec.clone(), prefix);
-
-    match ec.output.status.code() {
+    match output?.status.code() {
         Some(rc) => {
             if rc != 0 {
                 return plugin_err(format!("podman run exited with {rc}").as_str());
@@ -352,47 +317,4 @@ where
     };
 
     Ok(())
-}
-
-pub(crate) fn log_ec(ec: ExecutedCommand, prefix: &str) {
-    let rc = match ec.output.status.code() {
-        Some(ok) => format!("{ok}"),
-        None => {
-            skybox_log_debug!("{prefix} exited by signal");
-            String::from("UNKNOWN")
-        }
-    };
-
-    let mut stdout = match String::from_utf8(ec.output.stdout) {
-        Ok(ok) => ok,
-        Err(_) => String::from(""),
-    };
-    if stdout.ends_with("\n") {
-        stdout.pop();
-    };
-
-    let mut stderr = match String::from_utf8(ec.output.stderr) {
-        Ok(ok) => ok,
-        Err(_) => String::from(""),
-    };
-    if stderr.ends_with("\n") {
-        stderr.pop();
-    };
-
-    skybox_log_debug!("CMD: {}", ec.command);
-    skybox_log_debug!("{prefix} exit code: {}", rc);
-
-    if stdout != "" {
-        let lines = stdout.split("\n");
-        for line in lines {
-            skybox_log_debug!("{prefix} stdout: {}", line);
-        }
-    }
-
-    if stderr != "" {
-        let lines = stderr.split("\n");
-        for line in lines {
-            skybox_log_debug!("{prefix} stderr: {}", line);
-        }
-    }
 }
