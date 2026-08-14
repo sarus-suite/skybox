@@ -26,12 +26,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.102"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
-
-[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1178,12 +1172,12 @@ dependencies = [
 
 [[package]]
 name = "sarus-suite-podman-driver"
-version = "0.5.0"
-source = "git+https://github.com/sarus-suite/podman-driver#37d150f360a68226ffeee79645fa347574b3ea64"
+version = "0.8.0"
+source = "git+https://github.com/sarus-suite/podman-driver#be0d0cba231d676c42c96ca71aad762a6a0eaeb6"
 dependencies = [
- "anyhow",
  "bstr",
  "raster",
+ "thiserror",
 ]
 
 [[package]]
@@ -1313,7 +1307,7 @@ checksum = "726c1f160d565e9cef6ecaf0305c86fb254a9c6db6cb29379680b0213aa3a7e1"
 
 [[package]]
 name = "skybox"
-version = "0.0.0"
+version = "0.3.0"
 dependencies = [
  "cfg-if",
  "eyre",
@@ -1329,6 +1323,7 @@ dependencies = [
  "sysinfo",
  "text_io",
  "toml",
+ "tracing",
  "users",
 ]
 
